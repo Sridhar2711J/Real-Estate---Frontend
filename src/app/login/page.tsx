@@ -69,25 +69,19 @@ export default function LoginPage() {
           <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-black/40" />
         </div>
 
-        {/* Top-Left: Realnest Logo Badge */}
+        {/* Top-Left: Real Estate Logo Badge */}
         <div className="relative z-10">
           <Link href="/" className="inline-flex items-center gap-3 group">
-            <div className="w-10 h-10 rounded-full bg-white/95 text-slate-900 flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform">
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.4"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="w-5 h-5 text-slate-900"
-              >
-                <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-                <polyline points="9 22 9 12 15 12 15 22" />
-              </svg>
+            <div className="relative w-10 h-10 rounded-lg overflow-hidden shadow-lg group-hover:scale-105 transition-transform bg-white/95 p-1">
+              <Image
+                src="/favicon-square.webp"
+                alt="Real Estate Logo"
+                fill
+                className="object-contain"
+              />
             </div>
             <span className="text-xl font-bold tracking-tight text-white drop-shadow-sm">
-              Realnest
+              Real Estate
             </span>
           </Link>
         </div>
@@ -141,7 +135,7 @@ export default function LoginPage() {
           </div>
 
           {/* Demo Quick Fill Switcher */}
-          <div className="mb-6 p-3 bg-slate-50 border border-slate-200/70 rounded-2xl">
+          <div className="mb-6 p-3 bg-slate-50 border border-slate-200/70 rounded-xl">
             <div className="flex items-center justify-between mb-2">
               <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
                 <Sparkles className="w-3.5 h-3.5 text-amber-500" />
@@ -192,7 +186,7 @@ export default function LoginPage() {
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="info.madhu786@gmail.com"
                   required
-                  className="w-full px-4 py-3 text-sm rounded-xl border border-slate-300 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition-all"
+                  className="w-full h-11 px-4 text-sm rounded-xl border border-slate-300 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition-all"
                 />
               </div>
             </div>
@@ -213,7 +207,7 @@ export default function LoginPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="•••••••••"
                   required
-                  className="w-full px-4 py-3 text-sm rounded-xl border border-slate-300 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition-all pr-11"
+                  className="w-full h-11 px-4 pr-11 text-sm rounded-xl border border-slate-300 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition-all"
                 />
                 <button
                   type="button"

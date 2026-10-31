@@ -39,8 +39,13 @@ export function calculateSimilarProperties(
     const priceScore = Math.max(0, 1 - Math.min(priceDiffRatio, 1));
 
     // Same Location (25%)
-    const isSameLocation = p.location.toLowerCase().trim() === targetProperty.location.toLowerCase().trim();
-    const isSameCity = p.city.toLowerCase().trim() === targetProperty.city.toLowerCase().trim();
+    const targetLoc = (targetProperty.location || '').toLowerCase().trim();
+    const pLoc = (p.location || '').toLowerCase().trim();
+    const isSameLocation = Boolean(targetLoc && pLoc && pLoc === targetLoc);
+
+    const targetCity = (targetProperty.city || '').toLowerCase().trim();
+    const pCity = (p.city || '').toLowerCase().trim();
+    const isSameCity = Boolean(targetCity && pCity && pCity === targetCity);
     const locationScore = isSameLocation ? 1.0 : isSameCity ? 0.4 : 0;
 
     // Bedrooms (20%)

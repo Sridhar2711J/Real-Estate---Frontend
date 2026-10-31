@@ -65,8 +65,51 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       const storedProps = localStorage.getItem(STORAGE_KEYS.PROPERTIES);
       if (storedProps) {
-        setProperties(JSON.parse(storedProps));
+        try {
+          const parsed = JSON.parse(storedProps);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            // Sanitize each item so all string fields are guaranteed
+            const sanitized = parsed.map((p: any) => ({
+              ...p,
+              title: p.title || 'Untitled Property',
+              description: p.description || '',
+              city: p.city || 'San Francisco',
+              location: p.location || p.city || 'Prime Location',
+              address: p.address || '',
+              propertyType: p.propertyType || 'apartment',
+              bedrooms: Number(p.bedrooms) || 1,
+              bathrooms: Number(p.bathrooms) || 1,
+              area: Number(p.area) || 1000,
+              price: Number(p.price) || 0,
+              coverImage: p.coverImage || 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80',
+              images: Array.isArray(p.images) && p.images.length > 0
+                ? p.images
+                : [
+                    {
+                      id: 'img-1',
+                      url: p.coverImage || 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80',
+                      sortOrder: 0
+                    }
+                  ],
+              features: Array.isArray(p.features) ? p.features : []
+            }));
+
+            // Merge any newly introduced INITIAL_PROPERTIES that might not be in older local storage
+            const existingIds = new Set(sanitized.map((p: any) => p.id));
+            const missingDefaults = INITIAL_PROPERTIES.filter((p) => !existingIds.has(p.id));
+            const merged = [...sanitized, ...missingDefaults];
+            setProperties(merged);
+            localStorage.setItem(STORAGE_KEYS.PROPERTIES, JSON.stringify(merged));
+          } else {
+            setProperties(INITIAL_PROPERTIES);
+            localStorage.setItem(STORAGE_KEYS.PROPERTIES, JSON.stringify(INITIAL_PROPERTIES));
+          }
+        } catch {
+          setProperties(INITIAL_PROPERTIES);
+          localStorage.setItem(STORAGE_KEYS.PROPERTIES, JSON.stringify(INITIAL_PROPERTIES));
+        }
       } else {
+        setProperties(INITIAL_PROPERTIES);
         localStorage.setItem(STORAGE_KEYS.PROPERTIES, JSON.stringify(INITIAL_PROPERTIES));
       }
 

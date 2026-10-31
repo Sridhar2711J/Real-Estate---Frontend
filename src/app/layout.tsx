@@ -16,21 +16,26 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Humero. | Find Your Perfect Home',
+  title: 'Real Estate | Find Your Perfect Home',
   description:
     "Let's find your perfect home for you. Search verified modern luxury villas, apartments, and residential homes.",
   keywords: [
-    'Humero real estate',
+    'Real Estate',
     'Properties by cities',
     'Luxury homes',
     'Modern villas',
     'Real estate marketplace'
   ],
-  authors: [{ name: 'Humero Real Estate' }],
+  authors: [{ name: 'Real Estate Platform' }],
   openGraph: {
-    title: "Humero. | Let's find your perfect home for you.",
+    title: "Real Estate | Let's find your perfect home for you.",
     description: 'From as low as $10 per day with limited time offer discounts.',
     type: 'website',
+  },
+  icons: {
+    icon: '/favicon-square.webp',
+    shortcut: '/favicon.ico',
+    apple: '/favicon-square.webp',
   },
 };
 

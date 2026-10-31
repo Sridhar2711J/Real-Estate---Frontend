@@ -16,7 +16,6 @@ export default function HeroSearch() {
   const [tab, setTab] = useState<'sale' | 'rent'>('sale');
   const [query, setQuery] = useState('');
   const [selectedType, setSelectedType] = useState('Houses');
-  const [showFilterDropdown, setShowFilterDropdown] = useState(false);
   const [cityFilter, setCityFilter] = useState('');
 
   const handleSearch = (e: React.FormEvent) => {
@@ -86,7 +85,7 @@ export default function HeroSearch() {
 
       {/* Main Search Input Pill Bar */}
       <form onSubmit={handleSearch} className="relative">
-        <div className="bg-white rounded-2xl sm:rounded-full p-2 pl-4 sm:pl-5 shadow-lg shadow-slate-900/5 border border-slate-200/60 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+        <div className="bg-white rounded-xl p-2 pl-4 sm:pl-5 shadow-md shadow-slate-900/5 border border-slate-200/60 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
           {/* Text Input */}
           <input
             type="text"
@@ -98,54 +97,16 @@ export default function HeroSearch() {
 
           {/* Controls: Filter Icon + Coral Search Button */}
           <div className="flex items-center justify-between sm:justify-end gap-2">
-            {/* Filter Toggle Button */}
-            <button
-              type="button"
-              onClick={() => setShowFilterDropdown(!showFilterDropdown)}
-              className="p-2.5 text-slate-500 hover:text-slate-900 hover:bg-slate-50 rounded-full transition-colors"
-              title="Filter by City"
-            >
-              <SlidersHorizontal className="w-4 h-4" />
-            </button>
-
             {/* Coral Search Button matching Humero */}
             <button
               type="submit"
-              className="px-6 sm:px-7 py-3 rounded-xl sm:rounded-full bg-[#e76f51] hover:bg-[#d85e40] text-white text-xs sm:text-sm font-bold transition-all shadow-md shadow-[#e76f51]/25 flex items-center justify-center gap-2 shrink-0"
+              className="px-6 py-2.5 rounded-lg bg-[#e76f51] hover:bg-[#d85e40] text-white text-xs sm:text-sm font-bold transition-all shadow-sm shadow-[#e76f51]/25 flex items-center justify-center gap-2 shrink-0 cursor-pointer"
             >
               <SearchIcon className="w-4 h-4 sm:hidden" />
               <span>Search</span>
             </button>
           </div>
         </div>
-
-        {/* Quick Filter City Dropdown */}
-        {showFilterDropdown && (
-          <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-2xl shadow-xl border border-slate-100 p-3 z-30 animate-in fade-in">
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-2">
-              Filter By City:
-            </span>
-            <div className="grid grid-cols-2 gap-1.5 text-xs font-semibold">
-              {['San Diego', 'San Francisco', 'New York', 'Chicago', 'Pune', 'Mumbai'].map((c) => (
-                <button
-                  key={c}
-                  type="button"
-                  onClick={() => {
-                    setCityFilter(c);
-                    setShowFilterDropdown(false);
-                  }}
-                  className={`py-1.5 px-2 rounded-lg text-left transition-colors ${
-                    cityFilter === c
-                      ? 'bg-[#e76f51] text-white'
-                      : 'bg-slate-50 text-slate-700 hover:bg-slate-100'
-                  }`}
-                >
-                  {c}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
       </form>
 
       {/* Category Pills below Search Input matching image: Houses, Apartment, Office, Villa */}

@@ -42,11 +42,11 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-slate-50/50 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
+      <div className="w-full px-4 sm:px-8 lg:px-12 space-y-8">
         {/* Top Header Card */}
-        <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="bg-white rounded-xl p-6 sm:p-8 border border-slate-200/80 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-2xl bg-slate-900 text-white flex items-center justify-center font-bold text-2xl relative overflow-hidden shrink-0">
+            <div className="w-16 h-16 rounded-lg bg-slate-900 text-white flex items-center justify-center font-bold text-2xl relative overflow-hidden shrink-0">
               {user?.avatar ? (
                 <Image src={user.avatar} alt={user.name} fill className="object-cover" />
               ) : (
@@ -58,12 +58,12 @@ export default function DashboardPage() {
                 <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
                   Welcome back, {user?.name || 'Partner'}!
                 </h1>
-                <span className="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-800 text-[10px] font-bold uppercase tracking-wider">
+                <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-800 text-[10px] font-bold uppercase tracking-wider">
                   {user?.role === 'seller' ? 'Seller' : 'Buyer'}
                 </span>
               </div>
               <p className="text-xs text-slate-500 mt-1">
-                {user?.email} • Verified Humero. Member
+                {user?.email} • Verified Real Estate Member
               </p>
             </div>
           </div>
@@ -71,12 +71,12 @@ export default function DashboardPage() {
           <div className="flex items-center gap-3">
             <Link
               href="/dashboard/inquiries"
-              className="px-4 py-2.5 text-xs font-bold rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-2"
+              className="px-4 py-2 text-xs font-bold rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-2"
             >
               <MessageSquare className="w-4 h-4 text-slate-500" />
               <span>Inquiries</span>
               {unreadInquiries > 0 && (
-                <span className="px-1.5 py-0.2 rounded-full bg-rose-500 text-white text-[10px] font-bold">
+                <span className="px-1.5 py-0.2 rounded bg-rose-500 text-white text-[10px] font-bold">
                   {unreadInquiries}
                 </span>
               )}
@@ -84,7 +84,7 @@ export default function DashboardPage() {
 
             <Link
               href="/dashboard/properties/new"
-              className="px-5 py-2.5 text-xs font-bold rounded-xl bg-[#e76f51] text-white hover:bg-[#d65a3d] transition-colors shadow-md shadow-[#e76f51]/20 flex items-center gap-2"
+              className="px-5 py-2 text-xs font-bold rounded-lg bg-[#e76f51] text-white hover:bg-[#d65a3d] transition-colors shadow-sm shadow-[#e76f51]/20 flex items-center gap-2"
             >
               <PlusCircle className="w-4 h-4 text-white" />
               <span>Post New Property</span>
@@ -94,7 +94,7 @@ export default function DashboardPage() {
 
         {/* 4 Metrics Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-          <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs">
+          <div className="bg-white p-5 rounded-xl border border-slate-200/80 shadow-2xs">
             <div className="flex items-center justify-between text-slate-400 mb-2">
               <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">My Listings</span>
               <Building2 className="w-4 h-4 text-blue-600" />
@@ -105,7 +105,7 @@ export default function DashboardPage() {
             </p>
           </div>
 
-          <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs">
+          <div className="bg-white p-5 rounded-xl border border-slate-200/80 shadow-2xs">
             <div className="flex items-center justify-between text-slate-400 mb-2">
               <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">Inquiries</span>
               <MessageSquare className="w-4 h-4 text-purple-600" />
@@ -116,7 +116,7 @@ export default function DashboardPage() {
             </p>
           </div>
 
-          <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs">
+          <div className="bg-white p-5 rounded-xl border border-slate-200/80 shadow-2xs">
             <div className="flex items-center justify-between text-slate-400 mb-2">
               <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">Bookmarked</span>
               <Heart className="w-4 h-4 text-rose-500" />
@@ -125,7 +125,7 @@ export default function DashboardPage() {
             <p className="text-[11px] text-slate-400 mt-1">Properties in wishlist</p>
           </div>
 
-          <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs">
+          <div className="bg-white p-5 rounded-xl border border-slate-200/80 shadow-2xs">
             <div className="flex items-center justify-between text-slate-400 mb-2">
               <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">Account Status</span>
               <ShieldCheck className="w-4 h-4 text-emerald-600" />
@@ -138,7 +138,7 @@ export default function DashboardPage() {
         </div>
 
         {/* My Properties Table / List */}
-        <div className="bg-white rounded-3xl border border-slate-200/80 shadow-xs overflow-hidden">
+        <div className="bg-white rounded-xl border border-slate-200/80 shadow-xs overflow-hidden">
           <div className="p-6 border-b border-slate-100 flex items-center justify-between">
             <div>
               <h2 className="text-lg font-black text-slate-900 tracking-tight">My Property Listings</h2>

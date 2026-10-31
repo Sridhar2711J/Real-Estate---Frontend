@@ -371,11 +371,11 @@ export const INITIAL_PROPERTIES: Property[] = [
     bedrooms: 2,
     bathrooms: 2,
     area: 1850,
-    coverImage: 'https://images.unsplash.com/photo-1477959858617-67f30bc75b82?auto=format&fit=crop&w=1200&q=80',
+    coverImage: 'https://images.unsplash.com/photo-1494522855154-9297ac14b55f?auto=format&fit=crop&w=1200&q=80',
     images: [
       {
         id: 'chi-1',
-        url: 'https://images.unsplash.com/photo-1477959858617-67f30bc75b82?auto=format&fit=crop&w=1200&q=80',
+        url: 'https://images.unsplash.com/photo-1494522855154-9297ac14b55f?auto=format&fit=crop&w=1200&q=80',
         sortOrder: 0,
         caption: 'Skyline Terrace'
       }
@@ -488,7 +488,7 @@ export const HUMERO_CITIES = [
   {
     name: 'Chicago',
     count: '1 Property',
-    image: 'https://images.unsplash.com/photo-1477959858617-67f30bc75b82?auto=format&fit=crop&w=600&q=80',
+    image: 'https://images.unsplash.com/photo-1494522855154-9297ac14b55f?auto=format&fit=crop&w=600&q=80',
   },
   {
     name: 'New York',
@@ -528,7 +528,7 @@ export const TOP_CITIES = [
     name: 'Chicago',
     state: 'Illinois',
     count: '1,560+',
-    image: 'https://images.unsplash.com/photo-1477959858617-67f30bc75b82?auto=format&fit=crop&w=600&q=80',
+    image: 'https://images.unsplash.com/photo-1494522855154-9297ac14b55f?auto=format&fit=crop&w=600&q=80',
     popularLocalities: ['The Loop', 'Lincoln Park', 'River North', 'West Loop']
   },
   {
