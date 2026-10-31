@@ -26,7 +26,7 @@ export default function PropertyCard({ property, showSimilarityScore = false }: 
   const saved = isPropertySaved(property.id);
 
   return (
-    <div className="group bg-white rounded-xl overflow-hidden border border-slate-200/80 hover:border-slate-300 hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200 flex flex-col">
+    <div className="group bg-white rounded-lg overflow-hidden border border-slate-200/80 hover:border-slate-300 hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200 flex flex-col">
       {/* Image Container with Badges */}
       <div className="relative aspect-[16/10] w-full overflow-hidden bg-slate-100">
         <Link href={`/property/${property.id}`} className="block w-full h-full">

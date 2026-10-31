@@ -35,7 +35,7 @@ export default function Navbar() {
         <div className="flex items-center justify-between h-20">
           {/* Left: Brand Logo + Title "Real Estate" */}
           <Link href="/" className="flex items-center gap-3 group">
-            <div className="relative w-8 h-8 sm:w-9 sm:h-9 rounded-lg overflow-hidden shrink-0">
+            <div className="relative w-8 h-8 sm:w-9 sm:h-9 rounded-md overflow-hidden shrink-0">
               <Image
                 src="/favicon-square.webp"
                 alt="Real Estate Logo"
@@ -53,7 +53,7 @@ export default function Navbar() {
           <div className="flex items-center gap-3 sm:gap-6">
             {/* Wishlist Link */}
             <Link
-              href="/properties?savedOnly=true"
+              href="/bookmarks"
               className="relative p-2 text-slate-600 hover:text-rose-600 transition-colors"
               title="Saved properties"
             >
@@ -71,7 +71,7 @@ export default function Navbar() {
                 <button
                   type="button"
                   onClick={() => setDropdownOpen(!dropdownOpen)}
-                  className="flex items-center gap-2 p-1.5 pl-2 pr-3 rounded-lg border border-slate-200 hover:border-slate-300 hover:bg-slate-50 transition-all text-slate-800 cursor-pointer"
+                  className="flex items-center gap-2 p-1.5 pl-2 pr-3 rounded-md border border-slate-200 hover:border-slate-300 hover:bg-slate-50 transition-all text-slate-800 cursor-pointer"
                 >
                   <div className="w-7 h-7 rounded-md overflow-hidden bg-slate-200 relative shrink-0">
                     {user.avatar ? (
@@ -93,7 +93,7 @@ export default function Navbar() {
 
                 {dropdownOpen && (
                   <div
-                    className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-xl border border-slate-100 py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150"
+                    className="absolute right-0 mt-2 w-56 bg-white rounded-md shadow-xl border border-slate-100 py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150"
                     onMouseLeave={() => setDropdownOpen(false)}
                   >
                     <div className="px-4 py-2.5 border-b border-slate-100">
@@ -104,31 +104,91 @@ export default function Navbar() {
                       </span>
                     </div>
 
-                    <div className="py-1">
-                      <Link
-                        href="/dashboard"
-                        onClick={() => setDropdownOpen(false)}
-                        className="flex items-center gap-2.5 px-4 py-2 text-xs text-slate-700 hover:bg-slate-50"
-                      >
-                        <LayoutDashboard className="w-4 h-4 text-slate-500" />
-                        My Dashboard
-                      </Link>
-                      <Link
-                        href="/dashboard/inquiries"
-                        onClick={() => setDropdownOpen(false)}
-                        className="flex items-center justify-between px-4 py-2 text-xs text-slate-700 hover:bg-slate-50"
-                      >
-                        <span className="flex items-center gap-2.5">
-                          <MessageSquare className="w-4 h-4 text-slate-500" />
-                          Received Inquiries
-                        </span>
-                        {unreadInquiriesCount > 0 && (
-                          <span className="bg-[#e76f51] text-white text-[10px] px-1.5 py-0.5 rounded font-bold">
-                            {unreadInquiriesCount}
+                    {user.role === 'seller' ?
+                      <div className="py-1">
+                        <Link
+                          href="/dashboard"
+                          onClick={() => setDropdownOpen(false)}
+                          className="flex items-center gap-2.5 px-4 py-2 text-xs text-slate-700 hover:bg-slate-50"
+                        >
+                          <LayoutDashboard className="w-4 h-4 text-slate-500" />
+                          My Dashboard
+                        </Link>
+                        <Link
+                          href="/dashboard/inquiries"
+                          onClick={() => setDropdownOpen(false)}
+                          className="flex items-center justify-between px-4 py-2 text-xs text-slate-700 hover:bg-slate-50"
+                        >
+                          <span className="flex items-center gap-2.5">
+                            <MessageSquare className="w-4 h-4 text-slate-500" />
+                            Received Inquiries
                           </span>
-                        )}
-                      </Link>
-                    </div>
+                          {unreadInquiriesCount > 0 && (
+                            <span className="bg-[#e76f51] text-white text-[10px] px-1.5 py-0.5 rounded font-bold">
+                              {unreadInquiriesCount}
+                            </span>
+                          )}
+                        </Link>
+                        <Link
+                          href="/my-profile"
+                          onClick={() => setDropdownOpen(false)}
+                          className="flex items-center gap-2.5 px-4 py-2 text-xs text-slate-700 hover:bg-slate-50"
+                        >
+                          <UserIcon className="w-4 h-4 text-slate-500" />
+                          My Profile
+                        </Link>
+                        <Link
+                          href="/bookmarks"
+                          onClick={() => setDropdownOpen(false)}
+                          className="flex items-center justify-between px-4 py-2 text-xs text-slate-700 hover:bg-slate-50"
+                        >
+                          <span className="flex items-center gap-2.5">
+                            <Heart className="w-4 h-4 text-slate-500" />
+                            Bookmark
+                          </span>
+                          {savedPropertyIds.length > 0 && (
+                            <span className="bg-rose-50 text-rose-600 text-[10px] px-1.5 py-0.5 rounded font-bold">
+                              {savedPropertyIds.length}
+                            </span>
+                          )}
+                        </Link>
+                      </div> :
+                      <div className="py-1">
+                        <Link
+                          href="/my-profile"
+                          onClick={() => setDropdownOpen(false)}
+                          className="flex items-center gap-2.5 px-4 py-2 text-xs text-slate-700 hover:bg-slate-50"
+                        >
+                          <UserIcon className="w-4 h-4 text-slate-500" />
+                          My Profile
+                        </Link>
+                        <Link
+                          href="/my-inquiries"
+                          onClick={() => setDropdownOpen(false)}
+                          className="flex items-center justify-between px-4 py-2 text-xs text-slate-700 hover:bg-slate-50"
+                        >
+                          <span className="flex items-center gap-2.5">
+                            <MessageSquare className="w-4 h-4 text-slate-500" />
+                            My Inquiries
+                          </span>
+                        </Link>
+                        <Link
+                          href="/bookmarks"
+                          onClick={() => setDropdownOpen(false)}
+                          className="flex items-center justify-between px-4 py-2 text-xs text-slate-700 hover:bg-slate-50"
+                        >
+                          <span className="flex items-center gap-2.5">
+                            <Heart className="w-4 h-4 text-slate-500" />
+                            Bookmark
+                          </span>
+                          {savedPropertyIds.length > 0 && (
+                            <span className="bg-rose-50 text-rose-600 text-[10px] px-1.5 py-0.5 rounded font-bold">
+                              {savedPropertyIds.length}
+                            </span>
+                          )}
+                        </Link>
+                      </div>
+                    }
 
                     <div className="border-t border-slate-100 pt-1">
                       <button
@@ -159,7 +219,7 @@ export default function Navbar() {
             {/* "Add property ↗" button */}
             <Link
               href="/dashboard/properties/new"
-              className="inline-flex items-center gap-1.5 px-4 sm:px-5 py-2.5 rounded-lg border border-slate-900 text-slate-950 hover:bg-slate-950 hover:text-white transition-all text-xs sm:text-[13px] font-bold shadow-2xs group shrink-0"
+              className="inline-flex items-center gap-1.5 px-4 sm:px-5 py-2.5 rounded-md border border-slate-900 text-slate-950 hover:bg-slate-950 hover:text-white transition-all text-xs sm:text-[13px] font-bold shadow-2xs group shrink-0"
             >
               <span>Add property</span>
               <ArrowUpRight className="w-4 h-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />

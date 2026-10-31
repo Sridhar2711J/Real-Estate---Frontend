@@ -72,7 +72,7 @@ export default function LoginPage() {
         {/* Top-Left: Real Estate Logo Badge */}
         <div className="relative z-10">
           <Link href="/" className="inline-flex items-center gap-3 group">
-            <div className="relative w-10 h-10 rounded-lg overflow-hidden shadow-lg group-hover:scale-105 transition-transform bg-white/95 p-1">
+            <div className="relative w-10 h-10 rounded-md overflow-hidden shadow-lg group-hover:scale-105 transition-transform bg-white/95 p-1">
               <Image
                 src="/favicon-square.webp"
                 alt="Real Estate Logo"
@@ -117,7 +117,7 @@ export default function LoginPage() {
           </Link>
           <Link
             href="/login"
-            className="px-6 py-2 rounded-full bg-slate-950 text-white text-xs sm:text-sm font-semibold hover:bg-slate-800 transition-colors shadow-xs"
+            className="px-5 py-2 rounded-md bg-slate-950 text-white text-xs sm:text-sm font-semibold hover:bg-slate-800 transition-colors shadow-xs"
           >
             Sign in
           </Link>
@@ -135,13 +135,13 @@ export default function LoginPage() {
           </div>
 
           {/* Demo Quick Fill Switcher */}
-          <div className="mb-6 p-3 bg-slate-50 border border-slate-200/70 rounded-xl">
+          <div className="mb-6 p-3 bg-slate-50 border border-slate-200/70 rounded-lg">
             <div className="flex items-center justify-between mb-2">
               <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
                 <Sparkles className="w-3.5 h-3.5 text-amber-500" />
                 Quick 1-Click Demo Login:
               </span>
-              <span className="text-[10px] text-emerald-600 font-semibold bg-emerald-50 px-2 py-0.5 rounded-full">
+              <span className="text-[10px] text-emerald-600 font-semibold bg-emerald-50 px-2 py-0.5 rounded-md">
                 No typing needed
               </span>
             </div>
@@ -149,14 +149,14 @@ export default function LoginPage() {
               <button
                 type="button"
                 onClick={() => handleQuickDemo('seller')}
-                className="py-1.5 px-3 text-[11px] font-semibold rounded-lg bg-white border border-slate-200 text-slate-800 hover:bg-slate-900 hover:text-white transition-colors text-center shadow-xs"
+                className="py-1.5 px-3 text-[11px] font-semibold rounded-md bg-white border border-slate-200 text-slate-800 hover:bg-slate-900 hover:text-white transition-colors text-center shadow-xs cursor-pointer"
               >
                 Seller (Madhu)
               </button>
               <button
                 type="button"
                 onClick={() => handleQuickDemo('buyer')}
-                className="py-1.5 px-3 text-[11px] font-semibold rounded-lg bg-white border border-slate-200 text-slate-800 hover:bg-slate-900 hover:text-white transition-colors text-center shadow-xs"
+                className="py-1.5 px-3 text-[11px] font-semibold rounded-md bg-white border border-slate-200 text-slate-800 hover:bg-slate-900 hover:text-white transition-colors text-center shadow-xs cursor-pointer"
               >
                 Buyer (Priya)
               </button>
@@ -164,7 +164,7 @@ export default function LoginPage() {
           </div>
 
           {error && (
-            <div className="mb-5 p-3.5 text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-xl">
+            <div className="mb-5 p-3.5 text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-md">
               {error}
             </div>
           )}
@@ -186,7 +186,7 @@ export default function LoginPage() {
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="info.madhu786@gmail.com"
                   required
-                  className="w-full h-11 px-4 text-sm rounded-xl border border-slate-300 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition-all"
+                  className="w-full h-10 px-3.5 text-sm rounded-md border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#e76f51] focus:ring-2 focus:ring-[#e76f51]/20 transition-all"
                 />
               </div>
             </div>
@@ -207,12 +207,12 @@ export default function LoginPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="•••••••••"
                   required
-                  className="w-full h-11 px-4 pr-11 text-sm rounded-xl border border-slate-300 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition-all"
+                  className="w-full h-10 pl-3.5 pr-10 text-sm rounded-md border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#e76f51] focus:ring-2 focus:ring-[#e76f51]/20 transition-all"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
                   aria-label="Toggle password visibility"
                 >
                   {showPassword ? (
@@ -231,7 +231,7 @@ export default function LoginPage() {
                   type="checkbox"
                   checked={rememberMe}
                   onChange={(e) => setRememberMe(e.target.checked)}
-                  className="w-4 h-4 rounded text-slate-900 border-slate-300 focus:ring-slate-900 accent-slate-900 cursor-pointer"
+                  className="w-4 h-4 rounded text-[#e76f51] border-slate-300 focus:ring-[#e76f51] accent-[#e76f51] cursor-pointer"
                 />
                 <span>Remember Me</span>
               </label>
@@ -239,7 +239,7 @@ export default function LoginPage() {
               <button
                 type="button"
                 onClick={() => alert('Password reset link sent to ' + email)}
-                className="text-slate-500 hover:text-slate-800 transition-colors font-medium"
+                className="text-slate-500 hover:text-slate-800 transition-colors font-medium cursor-pointer"
               >
                 Forgot Password?
               </button>
@@ -249,7 +249,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3.5 px-4 rounded-xl bg-slate-950 text-white text-sm font-bold tracking-wide hover:bg-slate-800 transition-all shadow-md shadow-slate-950/15 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-2"
+              className="w-full h-10 px-4 rounded-md bg-slate-950 text-white text-sm font-bold tracking-wide hover:bg-slate-800 transition-all shadow-sm shadow-slate-950/15 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-2 cursor-pointer"
             >
               {loading ? (
                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -267,7 +267,7 @@ export default function LoginPage() {
               <div className="w-full border-t border-slate-200" />
             </div>
             <span className="relative bg-white px-4 text-xs text-slate-400 font-medium tracking-wider">
-              Instan Login
+              Instant Login
             </span>
           </div>
 
@@ -276,7 +276,7 @@ export default function LoginPage() {
             <button
               type="button"
               onClick={() => handleQuickDemo('seller')}
-              className="flex items-center justify-center gap-2.5 px-3 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-2xs"
+              className="flex items-center justify-center gap-2.5 h-10 px-3 rounded-md border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
             >
               {/* Google G Icon */}
               <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
@@ -303,7 +303,7 @@ export default function LoginPage() {
             <button
               type="button"
               onClick={() => handleQuickDemo('buyer')}
-              className="flex items-center justify-center gap-2.5 px-3 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-2xs"
+              className="flex items-center justify-center gap-2.5 h-10 px-3 rounded-md border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
             >
               {/* Facebook Icon */}
               <svg className="w-4 h-4 fill-[#1877F2] shrink-0" viewBox="0 0 24 24">

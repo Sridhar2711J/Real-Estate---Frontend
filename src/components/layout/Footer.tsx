@@ -38,7 +38,7 @@ export default function Footer() {
           {/* Column 1: Brand & Newsletter (Span 4) */}
           <div className="lg:col-span-4 space-y-4">
             <Link href="/" className="inline-flex items-center gap-2.5">
-              <div className="relative w-8 h-8 rounded-lg overflow-hidden shrink-0">
+              <div className="relative w-8 h-8 rounded-md overflow-hidden shrink-0">
                 <Image
                   src="/favicon-square.webp"
                   alt="Real Estate Logo"
@@ -64,7 +64,7 @@ export default function Footer() {
                   value={newsletterEmail}
                   onChange={(e) => setNewsletterEmail(e.target.value)}
                   placeholder="Enter your email"
-                  className="w-full h-10 pl-4 pr-12 text-xs sm:text-sm rounded-lg border border-slate-200 bg-slate-50 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:bg-white transition-all shadow-2xs"
+                  className="w-full h-10 pl-3.5 pr-12 text-sm rounded-md border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#e76f51] focus:ring-2 focus:ring-[#e76f51]/20 transition-all"
                 />
                 <button
                   type="submit"

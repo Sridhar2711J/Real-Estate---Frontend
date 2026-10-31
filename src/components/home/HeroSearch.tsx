@@ -83,24 +83,29 @@ export default function HeroSearch() {
         </button>
       </div>
 
-      {/* Main Search Input Pill Bar */}
+      {/* Main Search Input Bar */}
       <form onSubmit={handleSearch} className="relative">
-        <div className="bg-white rounded-xl p-2 pl-4 sm:pl-5 shadow-md shadow-slate-900/5 border border-slate-200/60 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+        <div className="bg-white rounded-lg p-1.5 pl-4 sm:pl-5 shadow-md shadow-slate-900/5 border border-slate-200/80 flex flex-col sm:flex-row items-stretch sm:items-center gap-2 focus-within:border-[#e76f51] focus-within:ring-2 focus-within:ring-[#e76f51]/20 transition-all">
           {/* Text Input */}
           <input
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Enter an address, neighborhoods, city or zip code"
-            className="flex-1 bg-transparent text-xs sm:text-[13px] text-slate-900 placeholder:text-slate-400 focus:outline-none py-2"
+            placeholder="Enter an address, neighborhood, city or zip code"
+            className="seamless-input flex-1 h-10 bg-transparent text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-0 focus:border-transparent px-1 border-none outline-none shadow-none"
+            style={{
+              border: 'none',
+              outline: 'none',
+              boxShadow: 'none',
+              backgroundColor: 'transparent',
+            }}
           />
 
-          {/* Controls: Filter Icon + Coral Search Button */}
-          <div className="flex items-center justify-between sm:justify-end gap-2">
-            {/* Coral Search Button matching Humero */}
+          {/* Controls: Coral Search Button */}
+          <div className="flex items-center justify-between sm:justify-end gap-2 shrink-0">
             <button
               type="submit"
-              className="px-6 py-2.5 rounded-lg bg-[#e76f51] hover:bg-[#d85e40] text-white text-xs sm:text-sm font-bold transition-all shadow-sm shadow-[#e76f51]/25 flex items-center justify-center gap-2 shrink-0 cursor-pointer"
+              className="h-10 px-6 rounded-md bg-[#e76f51] hover:bg-[#d85e40] text-white text-xs sm:text-sm font-bold transition-all shadow-xs flex items-center justify-center gap-2 shrink-0 cursor-pointer"
             >
               <SearchIcon className="w-4 h-4 sm:hidden" />
               <span>Search</span>

@@ -68,7 +68,7 @@ export default function PropertyDetailPage({ params }: PropertyDetailPageProps) 
         </p>
         <Link
           href="/properties"
-          className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full bg-slate-900 text-white text-xs font-semibold"
+          className="inline-flex items-center gap-2 px-6 py-2.5 rounded-md bg-slate-900 text-white text-xs font-semibold"
         >
           <ChevronLeft className="w-4 h-4" /> Back to Properties
         </Link>
@@ -138,13 +138,13 @@ export default function PropertyDetailPage({ params }: PropertyDetailPageProps) 
           <div className="flex items-center gap-2">
             <button
               onClick={handleShare}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 shadow-2xs cursor-pointer"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 shadow-2xs cursor-pointer"
             >
               <Share2 className="w-3.5 h-3.5" /> Share
             </button>
             <button
               onClick={() => toggleSaveProperty(property.id)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all shadow-2xs cursor-pointer ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md border transition-all shadow-2xs cursor-pointer ${
                 saved
                   ? 'bg-rose-50 border-rose-200 text-rose-600'
                   : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
@@ -159,7 +159,7 @@ export default function PropertyDetailPage({ params }: PropertyDetailPageProps) 
         {/* GALLERY SECTION */}
         <div className="space-y-3">
           {/* Main Large Display */}
-          <div className="relative aspect-[16/9] md:aspect-[21/9] w-full rounded-xl overflow-hidden bg-slate-900 shadow-xl">
+          <div className="relative aspect-[16/9] md:aspect-[21/9] w-full rounded-lg overflow-hidden bg-slate-900 shadow-xl">
             <Image
               src={property.images[activeImageIndex]?.url || property.coverImage}
               alt={property.title}
@@ -194,7 +194,7 @@ export default function PropertyDetailPage({ params }: PropertyDetailPageProps) 
                 <button
                   key={img.id || idx}
                   onClick={() => setActiveImageIndex(idx)}
-                  className={`relative w-24 h-16 rounded-lg overflow-hidden shrink-0 border-2 transition-all cursor-pointer ${
+                  className={`relative w-24 h-16 rounded-md overflow-hidden shrink-0 border-2 transition-all cursor-pointer ${
                     activeImageIndex === idx
                       ? 'border-slate-950 ring-2 ring-slate-900/20 scale-102'
                       : 'border-transparent opacity-70 hover:opacity-100'
@@ -212,7 +212,7 @@ export default function PropertyDetailPage({ params }: PropertyDetailPageProps) 
           {/* LEFT 2 COLUMNS: Property Information */}
           <div className="lg:col-span-2 space-y-8">
             {/* Main Header & Pricing Card */}
-            <div className="bg-white rounded-xl p-6 sm:p-8 border border-slate-200/80 shadow-xs space-y-4">
+            <div className="bg-white rounded-lg p-6 sm:p-8 border border-slate-200/80 shadow-xs space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                   <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight leading-snug">
@@ -271,30 +271,30 @@ export default function PropertyDetailPage({ params }: PropertyDetailPageProps) 
             </div>
 
             {/* Property Overview Specifications */}
-            <div className="bg-white rounded-xl p-6 sm:p-8 border border-slate-200/80 shadow-xs space-y-4">
+            <div className="bg-white rounded-lg p-6 sm:p-8 border border-slate-200/80 shadow-xs space-y-4">
               <h3 className="text-lg font-bold text-slate-900">Property Overview</h3>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-xs">
-                <div className="p-3 bg-slate-50 rounded-lg">
+                <div className="p-3 bg-slate-50 rounded-md">
                   <span className="text-slate-400 block mb-1">Property Type</span>
                   <span className="font-bold text-slate-900 capitalize">{property.propertyType}</span>
                 </div>
-                <div className="p-3 bg-slate-50 rounded-lg">
+                <div className="p-3 bg-slate-50 rounded-md">
                   <span className="text-slate-400 block mb-1">City</span>
                   <span className="font-bold text-slate-900">{property.city}</span>
                 </div>
-                <div className="p-3 bg-slate-50 rounded-lg">
+                <div className="p-3 bg-slate-50 rounded-md">
                   <span className="text-slate-400 block mb-1">Location</span>
                   <span className="font-bold text-slate-900">{property.location}</span>
                 </div>
-                <div className="p-3 bg-slate-50 rounded-lg">
+                <div className="p-3 bg-slate-50 rounded-md">
                   <span className="text-slate-400 block mb-1">Area</span>
                   <span className="font-bold text-slate-900">{property.area} sq.ft</span>
                 </div>
-                <div className="p-3 bg-slate-50 rounded-lg">
+                <div className="p-3 bg-slate-50 rounded-md">
                   <span className="text-slate-400 block mb-1">Listing ID</span>
                   <span className="font-bold text-slate-900 truncate block">{property.id}</span>
                 </div>
-                <div className="p-3 bg-slate-50 rounded-lg">
+                <div className="p-3 bg-slate-50 rounded-md">
                   <span className="text-slate-400 block mb-1">Status</span>
                   <span className="font-bold text-emerald-600">Active</span>
                 </div>
@@ -303,7 +303,7 @@ export default function PropertyDetailPage({ params }: PropertyDetailPageProps) 
 
             {/* Property Features List (Separate from Description) */}
             {property.features && property.features.length > 0 && (
-              <div className="bg-white rounded-xl p-6 sm:p-8 border border-slate-200/80 shadow-xs space-y-4">
+              <div className="bg-white rounded-lg p-6 sm:p-8 border border-slate-200/80 shadow-xs space-y-4">
                 <h3 className="text-lg font-bold text-slate-900">Property Features</h3>
                 <div className="flex flex-wrap gap-2.5">
                   {property.features.map((feat) => (
@@ -320,7 +320,7 @@ export default function PropertyDetailPage({ params }: PropertyDetailPageProps) 
             )}
 
             {/* Detailed Description */}
-            <div className="bg-white rounded-xl p-6 sm:p-8 border border-slate-200/80 shadow-xs space-y-4">
+            <div className="bg-white rounded-lg p-6 sm:p-8 border border-slate-200/80 shadow-xs space-y-4">
               <h3 className="text-lg font-bold text-slate-900">Detailed Description</h3>
               <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-line">
                 {property.description}
@@ -331,9 +331,9 @@ export default function PropertyDetailPage({ params }: PropertyDetailPageProps) 
           {/* RIGHT 1 COLUMN: Contact Seller / Inquiry Form */}
           <div className="space-y-6">
             {/* Seller Info Card */}
-            <div className="bg-white rounded-xl p-6 border border-slate-200/80 shadow-xs space-y-4">
+            <div className="bg-white rounded-lg p-6 border border-slate-200/80 shadow-xs space-y-4">
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-lg bg-slate-900 text-white font-bold flex items-center justify-center text-lg">
+                <div className="w-12 h-12 rounded-md bg-slate-900 text-white font-bold flex items-center justify-center text-lg">
                   S
                 </div>
                 <div>
@@ -344,20 +344,10 @@ export default function PropertyDetailPage({ params }: PropertyDetailPageProps) 
                   <p className="text-[11px] text-slate-400 mt-0.5">Usually responds in under 15 mins</p>
                 </div>
               </div>
-
-              <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-600">
-                <span className="flex items-center gap-1.5">
-                  <Phone className="w-3.5 h-3.5 text-slate-400" />
-                  Contact via Form
-                </span>
-                <span className="text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded text-[10px]">
-                  Direct Connection
-                </span>
-              </div>
             </div>
 
             {/* Inquiry Form */}
-            <div className="bg-white rounded-xl p-6 sm:p-7 border border-slate-200/80 shadow-xl space-y-5 sticky top-24">
+            <div className="bg-white rounded-lg p-6 sm:p-7 border border-slate-200/80 shadow-xl space-y-5 sticky top-24">
               <div>
                 <h3 className="text-lg font-bold text-slate-900">Send Inquiry to Seller</h3>
                 <p className="text-xs text-slate-500 mt-1">
@@ -367,7 +357,7 @@ export default function PropertyDetailPage({ params }: PropertyDetailPageProps) 
 
               {inquiryFeedback && (
                 <div
-                  className={`p-3.5 rounded-xl text-xs flex items-start gap-2 ${
+                  className={`p-3.5 rounded-md text-xs flex items-start gap-2 ${
                     inquiryFeedback.type === 'success'
                       ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
                       : 'bg-rose-50 text-rose-800 border border-rose-200'
@@ -401,7 +391,7 @@ export default function PropertyDetailPage({ params }: PropertyDetailPageProps) 
                     value={inquiryName}
                     onChange={(e) => setInquiryName(e.target.value)}
                     placeholder="e.g. Rahul Sharma"
-                    className="w-full h-10 px-3 text-xs sm:text-sm rounded-lg border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                    className="w-full h-10 px-3.5 text-sm rounded-md border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#e76f51] focus:ring-2 focus:ring-[#e76f51]/20 transition-all"
                   />
                 </div>
 
@@ -416,7 +406,7 @@ export default function PropertyDetailPage({ params }: PropertyDetailPageProps) 
                     value={inquiryEmail}
                     onChange={(e) => setInquiryEmail(e.target.value)}
                     placeholder="e.g. rahul@example.com"
-                    className="w-full h-10 px-3 text-xs sm:text-sm rounded-lg border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                    className="w-full h-10 px-3.5 text-sm rounded-md border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#e76f51] focus:ring-2 focus:ring-[#e76f51]/20 transition-all"
                   />
                 </div>
 
@@ -431,7 +421,7 @@ export default function PropertyDetailPage({ params }: PropertyDetailPageProps) 
                     value={inquiryPhone}
                     onChange={(e) => setInquiryPhone(e.target.value)}
                     placeholder="+91 98765 43210"
-                    className="w-full h-10 px-3 text-xs sm:text-sm rounded-lg border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                    className="w-full h-10 px-3.5 text-sm rounded-md border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#e76f51] focus:ring-2 focus:ring-[#e76f51]/20 transition-all"
                   />
                 </div>
 
@@ -445,14 +435,15 @@ export default function PropertyDetailPage({ params }: PropertyDetailPageProps) 
                     required
                     value={inquiryMessage}
                     onChange={(e) => setInquiryMessage(e.target.value)}
-                    className="w-full p-3 text-xs sm:text-sm rounded-lg border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900 resize-none"
+                    placeholder="Tell the seller what you want to know about this property..."
+                    className="w-full p-3.5 text-sm rounded-md border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#e76f51] focus:ring-2 focus:ring-[#e76f51]/20 transition-all resize-none"
                   />
                 </div>
 
                 <button
                   type="submit"
                   disabled={inquiryLoading}
-                  className="w-full py-3 px-4 rounded-lg bg-[#e76f51] hover:bg-[#d65a3d] text-white text-xs font-bold transition-all shadow-md shadow-[#e76f51]/20 flex items-center justify-center gap-2 disabled:opacity-60 cursor-pointer"
+                  className="w-full h-10 px-4 rounded-md bg-[#e76f51] hover:bg-[#d65a3d] text-white text-sm font-bold transition-all shadow-xs flex items-center justify-center gap-2 disabled:opacity-60 cursor-pointer"
                 >
                   {inquiryLoading ? (
                     <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />

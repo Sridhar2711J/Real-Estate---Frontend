@@ -59,7 +59,7 @@ export default function RegisterPage() {
 
         <div className="relative z-10">
           <Link href="/" className="inline-flex items-center gap-3 group">
-            <div className="relative w-10 h-10 rounded-lg overflow-hidden shadow-lg group-hover:scale-105 transition-transform bg-white/95 p-1">
+            <div className="relative w-10 h-10 rounded-md overflow-hidden shadow-lg group-hover:scale-105 transition-transform bg-white/95 p-1">
               <Image
                 src="/favicon-square.webp"
                 alt="Real Estate Logo"
@@ -101,7 +101,7 @@ export default function RegisterPage() {
           </Link>
           <Link
             href="/login"
-            className="px-6 py-2 rounded-full bg-slate-100 text-slate-800 text-xs sm:text-sm font-semibold hover:bg-slate-200 transition-colors shadow-xs"
+            className="px-5 py-2 rounded-md bg-slate-100 text-slate-800 text-xs sm:text-sm font-semibold hover:bg-slate-200 transition-colors shadow-xs"
           >
             Sign in
           </Link>
@@ -118,7 +118,7 @@ export default function RegisterPage() {
           </div>
 
           {error && (
-            <div className="mb-5 p-3.5 text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-xl">
+            <div className="mb-5 p-3.5 text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-md">
               {error}
             </div>
           )}
@@ -133,7 +133,7 @@ export default function RegisterPage() {
                 <button
                   type="button"
                   onClick={() => setRole('seller')}
-                  className={`py-2.5 px-3 text-xs font-bold rounded-xl border transition-all text-center ${
+                  className={`py-2.5 px-3 text-xs font-bold rounded-md border transition-all text-center cursor-pointer ${
                     role === 'seller'
                       ? 'border-slate-950 bg-slate-950 text-white shadow-xs'
                       : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
@@ -144,7 +144,7 @@ export default function RegisterPage() {
                 <button
                   type="button"
                   onClick={() => setRole('buyer')}
-                  className={`py-2.5 px-3 text-xs font-bold rounded-xl border transition-all text-center ${
+                  className={`py-2.5 px-3 text-xs font-bold rounded-md border transition-all text-center cursor-pointer ${
                     role === 'buyer'
                       ? 'border-slate-950 bg-slate-950 text-white shadow-xs'
                       : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
@@ -167,7 +167,7 @@ export default function RegisterPage() {
                 onChange={(e) => setName(e.target.value)}
                 placeholder="e.g. Madhu Sharma"
                 required
-                className="w-full h-11 px-4 text-sm rounded-xl border border-slate-300 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition-all"
+                className="w-full h-10 px-3.5 text-sm rounded-md border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#e76f51] focus:ring-2 focus:ring-[#e76f51]/20 transition-all"
               />
             </div>
 
@@ -183,7 +183,7 @@ export default function RegisterPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="info.madhu786@gmail.com"
                 required
-                className="w-full h-11 px-4 text-sm rounded-xl border border-slate-300 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition-all"
+                className="w-full h-10 px-3.5 text-sm rounded-md border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#e76f51] focus:ring-2 focus:ring-[#e76f51]/20 transition-all"
               />
             </div>
 
@@ -198,7 +198,7 @@ export default function RegisterPage() {
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder="+91 98765 43210"
-                className="w-full h-11 px-4 text-sm rounded-xl border border-slate-300 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition-all"
+                className="w-full h-10 px-3.5 text-sm rounded-md border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#e76f51] focus:ring-2 focus:ring-[#e76f51]/20 transition-all"
               />
             </div>
 
@@ -215,12 +215,12 @@ export default function RegisterPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="At least 8 characters"
                   required
-                  className="w-full h-11 px-4 pr-11 text-sm rounded-xl border border-slate-300 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition-all"
+                  className="w-full h-10 pl-3.5 pr-10 text-sm rounded-md border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#e76f51] focus:ring-2 focus:ring-[#e76f51]/20 transition-all"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -230,7 +230,7 @@ export default function RegisterPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3.5 px-4 rounded-xl bg-slate-950 text-white text-sm font-bold tracking-wide hover:bg-slate-800 transition-all shadow-md shadow-slate-950/15 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-4"
+              className="w-full h-10 px-4 rounded-md bg-slate-950 text-white text-sm font-bold tracking-wide hover:bg-slate-800 transition-all shadow-sm shadow-slate-950/15 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-4 cursor-pointer"
             >
               {loading ? (
                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />

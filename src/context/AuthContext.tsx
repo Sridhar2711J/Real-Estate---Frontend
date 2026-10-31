@@ -14,6 +14,7 @@ interface AuthContextType {
   login: (email: string, password?: string) => Promise<{ success: boolean; message?: string }>;
   quickLogin: (userType: 'buyer' | 'seller') => void;
   register: (data: { name: string; email: string; phone?: string; role: 'buyer' | 'seller' }) => Promise<{ success: boolean }>;
+  updateUserProfile: (data: Partial<User>) => void;
   logout: () => void;
   toggleSaveProperty: (propertyId: string) => void;
   isPropertySaved: (propertyId: string) => boolean;
@@ -198,6 +199,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return { success: true };
   };
 
+  const updateUserProfile = (updatedData: Partial<User>) => {
+    if (!user) return;
+    const updatedUser: User = {
+      ...user,
+      ...updatedData,
+    };
+    saveUserToStorage(updatedUser);
+  };
+
   const logout = () => {
     saveUserToStorage(null);
   };
@@ -368,6 +378,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         login,
         quickLogin,
         register,
+        updateUserProfile,
         logout,
         toggleSaveProperty,
         isPropertySaved,

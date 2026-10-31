@@ -238,7 +238,7 @@ function PropertiesContent() {
                 updateUrl({ searchQuery: e.target.value });
               }}
               placeholder="Search by locality, title..."
-              className="w-full h-10 pl-9 pr-3 text-xs sm:text-sm rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-slate-900 shadow-2xs"
+              className="w-full h-10 pl-10 pr-3.5 text-sm rounded-md border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#e76f51] focus:ring-2 focus:ring-[#e76f51]/20 transition-all"
             />
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
@@ -246,7 +246,7 @@ function PropertiesContent() {
           <button
             type="button"
             onClick={() => setMobileFilterOpen(!mobileFilterOpen)}
-            className="md:hidden h-10 flex items-center gap-1.5 px-3 text-xs font-semibold bg-white border border-slate-200 rounded-lg shadow-2xs shrink-0 cursor-pointer"
+            className="md:hidden h-10 flex items-center gap-1.5 px-3 text-xs font-semibold bg-white border border-slate-200 rounded-md shadow-2xs shrink-0 cursor-pointer"
           >
             <SlidersHorizontal className="w-4 h-4" />
             <span>Filters ({activeFiltersCount})</span>
@@ -260,14 +260,14 @@ function PropertiesContent() {
         <aside
           className={`${
             mobileFilterOpen ? 'block' : 'hidden'
-          } md:block md:col-span-1 bg-white p-5 rounded-xl border border-slate-200/80 shadow-xs h-fit space-y-6`}
+          } md:block md:col-span-1 bg-white p-5 rounded-lg border border-slate-200/80 shadow-xs h-fit space-y-6`}
         >
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <div className="flex items-center gap-2">
               <Filter className="w-4 h-4 text-slate-700" />
               <h3 className="font-bold text-sm text-slate-900">Filters</h3>
               {activeFiltersCount > 0 && (
-                <span className="px-1.5 py-0.5 rounded bg-slate-900 text-white text-[10px] font-bold">
+                <span className="px-1.5 py-0.5 rounded-sm bg-slate-900 text-white text-[10px] font-bold">
                   {activeFiltersCount}
                 </span>
               )}
@@ -289,7 +289,7 @@ function PropertiesContent() {
             <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
               Listing Purpose
             </label>
-            <div className="grid grid-cols-3 gap-1.5 p-1 bg-slate-100 rounded-lg">
+            <div className="grid grid-cols-3 gap-1.5 p-1 bg-slate-100 rounded-md">
               {[
                 { label: 'All', value: '' },
                 { label: 'Buy', value: 'sale' },
@@ -325,7 +325,7 @@ function PropertiesContent() {
                 setCity(e.target.value);
                 updateUrl({ city: e.target.value });
               }}
-              className="w-full h-10 px-3 text-xs sm:text-sm rounded-lg border border-slate-200 bg-slate-50 text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-slate-900 cursor-pointer"
+              className="w-full h-10 px-3.5 text-sm rounded-md border border-slate-300 bg-white text-slate-800 font-medium focus:outline-none focus:border-[#e76f51] focus:ring-2 focus:ring-[#e76f51]/20 transition-all cursor-pointer"
             >
               <option value="">All Cities</option>
               {TOP_CITIES.map((c) => (
@@ -362,7 +362,7 @@ function PropertiesContent() {
                       setPropertyType(item.value);
                       updateUrl({ propertyType: item.value });
                     }}
-                    className="w-3.5 h-3.5 text-slate-900 focus:ring-slate-900 accent-slate-900"
+                    className="w-3.5 h-3.5 text-[#e76f51] focus:ring-[#e76f51] accent-[#e76f51]"
                   />
                   <span>{item.label}</span>
                 </label>
@@ -390,7 +390,7 @@ function PropertiesContent() {
                     setBedrooms(newVal);
                     updateUrl({ bedrooms: newVal });
                   }}
-                  className={`py-1.5 text-xs font-semibold rounded-lg border transition-all ${
+                  className={`py-1.5 text-xs font-semibold rounded-md border transition-all cursor-pointer ${
                     bedrooms === item.value
                       ? 'bg-slate-900 border-slate-900 text-white shadow-2xs'
                       : 'border-slate-200 text-slate-700 hover:bg-slate-50'
@@ -416,7 +416,7 @@ function PropertiesContent() {
                   setMinPrice(e.target.value);
                   updateUrl({ minPrice: e.target.value });
                 }}
-                className="w-full h-10 px-3 text-xs sm:text-sm rounded-lg border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                className="w-full h-10 px-3.5 text-sm rounded-md border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#e76f51] focus:ring-2 focus:ring-[#e76f51]/20 transition-all"
               />
               <input
                 type="number"
@@ -426,7 +426,7 @@ function PropertiesContent() {
                   setMaxPrice(e.target.value);
                   updateUrl({ maxPrice: e.target.value });
                 }}
-                className="w-full h-10 px-3 text-xs sm:text-sm rounded-lg border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                className="w-full h-10 px-3.5 text-sm rounded-md border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#e76f51] focus:ring-2 focus:ring-[#e76f51]/20 transition-all"
               />
             </div>
           </div>
@@ -441,7 +441,7 @@ function PropertiesContent() {
                   setSavedOnly(e.target.checked);
                   updateUrl({ savedOnly: e.target.checked ? 'true' : '' });
                 }}
-                className="w-4 h-4 rounded text-slate-900 border-slate-300 focus:ring-slate-900 accent-slate-900"
+                className="w-4 h-4 rounded text-[#e76f51] border-slate-300 focus:ring-[#e76f51] accent-[#e76f51]"
               />
               <span>Saved / Bookmarked Only ({savedPropertyIds.length})</span>
             </label>
@@ -451,7 +451,7 @@ function PropertiesContent() {
         {/* RIGHT PROPERTY RESULTS COLUMN */}
         <main className="md:col-span-3 space-y-6">
           {/* Controls Bar: Sort, view and active chips */}
-          <div className="bg-white p-3.5 rounded-xl border border-slate-200/80 shadow-2xs flex flex-wrap items-center justify-between gap-3">
+          <div className="bg-white p-3.5 rounded-lg border border-slate-200/80 shadow-2xs flex flex-wrap items-center justify-between gap-3">
             {/* Active Filters count summary */}
             <div className="flex items-center gap-2 text-xs text-slate-600">
               <span className="font-semibold text-slate-900">
@@ -476,7 +476,7 @@ function PropertiesContent() {
                   setSort(e.target.value);
                   updateUrl({ sort: e.target.value });
                 }}
-                className="h-10 px-3 text-xs sm:text-sm font-semibold rounded-lg border border-slate-200 bg-slate-50 text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900 cursor-pointer"
+                className="h-10 px-3.5 text-sm font-semibold rounded-md border border-slate-300 bg-white text-slate-800 focus:outline-none focus:border-[#e76f51] focus:ring-2 focus:ring-[#e76f51]/20 transition-all cursor-pointer"
               >
                 <option value="newest">Newest First</option>
                 <option value="price_asc">Price: Low to High</option>
@@ -512,7 +512,7 @@ function PropertiesContent() {
                       type="button"
                       onClick={() => handlePageChange(validCurrentPage - 1)}
                       disabled={validCurrentPage === 1}
-                      className="flex items-center gap-1 px-3 py-2 text-xs font-semibold rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-2xs cursor-pointer"
+                      className="flex items-center gap-1 px-3 py-2 text-xs font-semibold rounded-md border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-2xs cursor-pointer"
                       aria-label="Previous page"
                     >
                       <ChevronLeft className="w-4 h-4" />
@@ -539,7 +539,7 @@ function PropertiesContent() {
                             key={pageNum}
                             type="button"
                             onClick={() => handlePageChange(pageNum)}
-                            className={`min-w-8 h-8 px-2 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                            className={`min-w-8 h-8 px-2 text-xs font-semibold rounded-md transition-all cursor-pointer ${
                               isActive
                                 ? 'bg-slate-900 text-white shadow-2xs font-bold'
                                 : 'text-slate-700 hover:bg-slate-100'
@@ -558,7 +558,7 @@ function PropertiesContent() {
                       type="button"
                       onClick={() => handlePageChange(validCurrentPage + 1)}
                       disabled={validCurrentPage === totalPages}
-                      className="flex items-center gap-1 px-3 py-2 text-xs font-semibold rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-2xs cursor-pointer"
+                      className="flex items-center gap-1 px-3 py-2 text-xs font-semibold rounded-md border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-2xs cursor-pointer"
                       aria-label="Next page"
                     >
                       <span className="hidden sm:inline">Next</span>
@@ -570,8 +570,8 @@ function PropertiesContent() {
             </div>
           ) : (
             /* Empty State */
-            <div className="bg-white rounded-xl p-12 text-center border border-slate-200/80 shadow-xs space-y-4">
-              <div className="w-14 h-14 rounded-lg bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
+            <div className="bg-white rounded-lg p-12 text-center border border-slate-200/80 shadow-xs space-y-4">
+              <div className="w-14 h-14 rounded-md bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
                 <Search className="w-7 h-7" />
               </div>
               <h3 className="text-lg font-bold text-slate-900">No properties matched your criteria</h3>
@@ -581,7 +581,7 @@ function PropertiesContent() {
               <button
                 type="button"
                 onClick={handleResetFilters}
-                className="px-6 py-2.5 rounded-lg bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition-colors shadow-xs cursor-pointer"
+                className="px-6 py-2.5 rounded-md bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition-colors shadow-xs cursor-pointer"
               >
                 Reset All Filters
               </button>
