@@ -80,3 +80,21 @@ textarea::placeholder {
 ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
 }
+
+/* Hide scrollbar utility */
+.no-scrollbar::-webkit-scrollbar,
+.seller-scroll-area::-webkit-scrollbar,
+body:has(.buyer-portal)::-webkit-scrollbar,
+.buyer-portal::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+.no-scrollbar,
+.seller-scroll-area,
+body:has(.buyer-portal),
+.buyer-portal {
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
+}

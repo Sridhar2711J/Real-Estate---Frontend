@@ -236,9 +236,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const title = propertyData.title || 'New Property Listing';
 
     const defaultCover =
-      propertyData.images && propertyData.images.length > 0
+      propertyData.coverImage ||
+      (propertyData.images && propertyData.images.length > 0
         ? propertyData.images[0].url
-        : 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80';
+        : 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80');
 
     const newProperty: Property = {
       id: newId,

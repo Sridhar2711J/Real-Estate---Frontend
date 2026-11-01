@@ -17,7 +17,8 @@ export default function Footer() {
   const [newsletterEmail, setNewsletterEmail] = useState('');
   const [subscribed, setSubscribed] = useState(false);
 
-  if (pathname === '/login' || pathname === '/register') {
+  // Do not render footer on auth pages or seller portal pages
+  if (pathname === '/login' || pathname === '/register' || pathname.startsWith('/seller')) {
     return null;
   }
 

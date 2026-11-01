@@ -62,9 +62,6 @@ export default function BuyerInquiriesClient() {
             <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
               My Inquiries
             </h1>
-            <span className="ml-2 px-2.5 py-0.5 rounded-md text-xs font-extrabold bg-[#e76f51]/10 text-[#e76f51]">
-              {filteredInquiries.length}
-            </span>
           </div>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
             Track inquiries, viewing requests, and responses for properties you are interested in.

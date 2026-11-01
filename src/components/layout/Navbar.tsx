@@ -13,7 +13,8 @@ import {
   MessageSquare,
   LogOut,
   Heart,
-  Building2
+  Building2,
+  PlusCircle,
 } from 'lucide-react';
 
 export default function Navbar() {
@@ -26,6 +27,7 @@ export default function Navbar() {
     return null;
   }
 
+  const isSellerPortal = pathname.startsWith('/seller');
   const myInquiries = getMyInquiries();
   const unreadInquiriesCount = myInquiries.filter((i) => i.status === 'new').length;
 
@@ -34,37 +36,63 @@ export default function Navbar() {
       {/* Full width container matching user request */}
       <div className="w-full px-4 sm:px-8 lg:px-12">
         <div className="flex items-center justify-between h-20">
-          {/* Left: Brand Logo + Title "Real Estate" */}
-          <Link href="/" className="flex items-center gap-3 group">
-            <div className="relative w-8 h-8 sm:w-9 sm:h-9 rounded-md overflow-hidden shrink-0">
-              <Image
-                src="/favicon-square.webp"
-                alt="Real Estate Logo"
-                fill
-                priority
-                className="object-contain"
-              />
-            </div>
-            <span className="text-2xl sm:text-[28px] font-black tracking-tight text-[#111827]">
-              Real Estate
-            </span>
-          </Link>
-
-          {/* Right Action: Wishlist, User Pill & "Add property ↗" button only */}
-          <div className="flex items-center gap-3 sm:gap-6">
-            {/* Wishlist Link */}
-            <Link
-              href="/buyer/bookmarks"
-              className="relative p-2 text-slate-600 hover:text-rose-600 transition-colors"
-              title="Saved properties"
-            >
-              <Heart className="w-5 h-5" />
-              {savedPropertyIds.length > 0 && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 bg-rose-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
-                  {savedPropertyIds.length}
+          {/* Left: Brand Logo + Title */}
+          {isSellerPortal ? (
+            /* Seller Portal Brand Link (Navigates to Seller Dashboard, NO Buyer Home link) */
+            <Link href="/seller/dashboard" className="flex items-center gap-3 group">
+              <div className="relative w-8 h-8 sm:w-9 sm:h-9 rounded-md overflow-hidden shrink-0">
+                <Image
+                  src="/favicon-square.webp"
+                  alt="Real Estate Logo"
+                  fill
+                  priority
+                  className="object-contain"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-2xl sm:text-[28px] font-black tracking-tight text-[#111827]">
+                  Real Estate
                 </span>
-              )}
+                <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-[#fef0eb] text-[#e76f51] border border-[#e76f51]/30">
+                  Seller Portal
+                </span>
+              </div>
             </Link>
+          ) : (
+            /* Buyer / Public Site Brand Link (Navigates to Home Page) */
+            <Link href="/" className="flex items-center gap-3 group">
+              <div className="relative w-8 h-8 sm:w-9 sm:h-9 rounded-md overflow-hidden shrink-0">
+                <Image
+                  src="/favicon-square.webp"
+                  alt="Real Estate Logo"
+                  fill
+                  priority
+                  className="object-contain"
+                />
+              </div>
+              <span className="text-2xl sm:text-[28px] font-black tracking-tight text-[#111827]">
+                Real Estate
+              </span>
+            </Link>
+          )}
+
+          {/* Right Action: Seller Actions OR Buyer/Public Actions */}
+          <div className="flex items-center gap-3 sm:gap-6">
+            {/* Wishlist Link - SHOWN ONLY ON BUYER SITE, NOT ON SELLER PORTAL */}
+            {!isSellerPortal && (
+              <Link
+                href="/buyer/bookmarks"
+                className="relative p-2 text-slate-600 hover:text-rose-600 transition-colors"
+                title="Saved properties"
+              >
+                <Heart className="w-5 h-5" />
+                {savedPropertyIds.length > 0 && (
+                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-rose-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                    {savedPropertyIds.length}
+                  </span>
+                )}
+              </Link>
+            )}
 
             {/* User Profile Pill / Dropdown OR Signin/Signup */}
             {user ? (
@@ -101,11 +129,12 @@ export default function Navbar() {
                       <p className="text-xs font-bold text-slate-900 truncate">{user.name}</p>
                       <p className="text-[11px] text-slate-500 truncate">{user.email}</p>
                       <span className="inline-block mt-1 px-2 py-0.5 bg-slate-100 text-slate-700 text-[10px] font-semibold rounded capitalize">
-                        {user.role === 'seller' ? 'Seller' : 'Buyer'} Account
+                        {isSellerPortal || user.role === 'seller' ? 'Seller Account' : 'Buyer Account'}
                       </span>
                     </div>
 
-                    {user.role === 'seller' ?
+                    {isSellerPortal || user.role === 'seller' ? (
+                      /* Seller Nav Only: Strictly seller options, NO buyer site or bookmarks */
                       <div className="py-1">
                         <Link
                           href="/seller/dashboard"
@@ -146,22 +175,9 @@ export default function Navbar() {
                           <UserIcon className="w-4 h-4 text-slate-500" />
                           My Profile
                         </Link>
-                        <Link
-                          href="/buyer/bookmarks"
-                          onClick={() => setDropdownOpen(false)}
-                          className="flex items-center justify-between px-4 py-2 text-xs text-slate-700 hover:bg-slate-50"
-                        >
-                          <span className="flex items-center gap-2.5">
-                            <Heart className="w-4 h-4 text-slate-500" />
-                            Bookmark
-                          </span>
-                          {savedPropertyIds.length > 0 && (
-                            <span className="bg-rose-50 text-rose-600 text-[10px] px-1.5 py-0.5 rounded font-bold">
-                              {savedPropertyIds.length}
-                            </span>
-                          )}
-                        </Link>
-                      </div> :
+                      </div>
+                    ) : (
+                      /* Buyer Nav: Buyer Profile, Inquiries & Bookmarks */
                       <div className="py-1">
                         <Link
                           href="/buyer/profile"
@@ -197,7 +213,7 @@ export default function Navbar() {
                           )}
                         </Link>
                       </div>
-                    }
+                    )}
 
                     <div className="border-t border-slate-100 pt-1">
                       <button
@@ -225,15 +241,16 @@ export default function Navbar() {
               </Link>
             )}
 
-            {/* "Add property ↗" button */}
-            {user?.role !== 'seller' && (             
-            <Link
-              href="/seller/properties/new"
-              className="inline-flex items-center gap-1.5 px-4 sm:px-5 py-2.5 rounded-md border border-slate-900 text-slate-950 hover:bg-slate-950 hover:text-white transition-all text-xs sm:text-[13px] font-bold shadow-2xs group shrink-0"
-            >
-              <span>Add property</span>
-              <ArrowUpRight className="w-4 h-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-            </Link>)}
+            {/* "Add Property" button: Styled for Seller Portal vs Public Site */}
+            {!isSellerPortal && (
+              <Link
+                href="/seller/properties/new"
+                className="inline-flex items-center gap-1.5 px-4 sm:px-5 py-2.5 rounded-md bg-[#e76f51] hover:bg-[#d85e40] text-white transition-all text-xs sm:text-[13px] font-bold shadow-xs shrink-0"
+              >
+                <PlusCircle className="w-4 h-4" />
+                <span>Add Property</span>
+              </Link>
+            )}
           </div>
         </div>
       </div>

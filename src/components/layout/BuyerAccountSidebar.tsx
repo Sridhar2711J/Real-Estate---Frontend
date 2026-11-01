@@ -40,7 +40,7 @@ export default function BuyerAccountSidebar() {
             href: '/buyer/inquiries',
             icon: MessageSquare,
             description: 'Messages & tour requests',
-            badge: inquiryCount > 0 ? inquiryCount : null,
+            badge: null,
             badgeColor: 'bg-[#e76f51] text-white',
         },
         {
