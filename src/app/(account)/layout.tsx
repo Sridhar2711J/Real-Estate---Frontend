@@ -4,6 +4,10 @@ import BuyerAccountSidebar from '@/components/layout/BuyerAccountSidebar';
 export const metadata = {
   title: 'My Account | Real Estate',
   description: 'Manage your profile, view submitted inquiries, and review bookmarked properties.',
+  robots: {
+    index: false,
+    follow: false,
+  },
 };
 
 export default function AccountLayout({
