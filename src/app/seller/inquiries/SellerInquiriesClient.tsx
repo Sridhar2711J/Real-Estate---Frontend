@@ -81,7 +81,7 @@ export default function SellerInquiriesClient() {
   const handleSendReply = (e: React.FormEvent) => {
     e.preventDefault();
     if (selectedInquiry && replyMessage.trim()) {
-      updateInquiryStatus(selectedInquiry.id, 'replied');
+      updateInquiryStatus(selectedInquiry.id, 'replied', replyMessage.trim());
       setReplySent(true);
       setTimeout(() => {
         setSelectedInquiry(null);

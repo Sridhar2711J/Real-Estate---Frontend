@@ -56,6 +56,8 @@ export interface Inquiry {
   email: string;
   phone: string;
   message: string;
+  replyMessage?: string;
+  repliedAt?: string;
   dedupeKey?: string;
   status: InquiryStatus;
   createdAt: string;

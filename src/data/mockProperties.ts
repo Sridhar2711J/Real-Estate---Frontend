@@ -448,7 +448,9 @@ export const INITIAL_INQUIRIES: Inquiry[] = [
     email: 'anand.patil@outlook.com',
     phone: '+91 98234 56789',
     message: 'Hello, I am interested in visiting this 3 BHK in Baner this Saturday afternoon around 3 PM.',
-    status: 'new',
+    status: 'replied',
+    replyMessage: 'Hi Anand! Saturday 3:00 PM works great. Our site coordinator Mr. Sharma (+91 98765 43210) will receive you at the main clubhouse reception for a private guided walkthrough. Looking forward to welcoming you!',
+    repliedAt: '2026-10-31T11:45:00Z',
     createdAt: '2026-10-31T09:15:00Z',
   },
   {

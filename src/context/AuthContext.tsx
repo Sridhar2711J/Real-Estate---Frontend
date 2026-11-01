@@ -29,7 +29,7 @@ interface AuthContextType {
     message: string;
     honeypotWebsite?: string;
   }) => { success: boolean; message: string };
-  updateInquiryStatus: (inquiryId: string, status: 'new' | 'read' | 'replied') => void;
+  updateInquiryStatus: (inquiryId: string, status: 'new' | 'read' | 'replied', replyMessage?: string) => void;
   getPropertyBySlug: (slug: string) => Property | undefined;
   getMyProperties: () => Property[];
   getMyInquiries: () => Inquiry[];
@@ -344,8 +344,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   };
 
-  const updateInquiryStatus = (inquiryId: string, status: 'new' | 'read' | 'replied') => {
-    const updated = inquiries.map((inq) => (inq.id === inquiryId ? { ...inq, status } : inq));
+  const updateInquiryStatus = (
+    inquiryId: string,
+    status: 'new' | 'read' | 'replied',
+    replyMessage?: string
+  ) => {
+    const updated = inquiries.map((inq) =>
+      inq.id === inquiryId
+        ? {
+            ...inq,
+            status,
+            ...(replyMessage ? { replyMessage, repliedAt: new Date().toISOString() } : {}),
+          }
+        : inq
+    );
     saveInquiriesToStorage(updated);
   };
 
