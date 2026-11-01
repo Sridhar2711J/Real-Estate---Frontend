@@ -64,7 +64,11 @@ export default function RegisterPage() {
     try {
       const res = await register({ name, email, phone, role });
       if (res.success) {
-        router.push('/dashboard');
+        if (role === 'buyer') {
+          router.push('/');
+        } else {
+          router.push('/dashboard');
+        }
       }
     } catch {
       setError('Registration failed. Please try again.');

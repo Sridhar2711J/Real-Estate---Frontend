@@ -11,9 +11,9 @@ interface AuthContextType {
   properties: Property[];
   inquiries: Inquiry[];
   savedPropertyIds: string[];
-  login: (email: string, password?: string) => Promise<{ success: boolean; message?: string }>;
-  quickLogin: (userType: 'buyer' | 'seller') => void;
-  register: (data: { name: string; email: string; phone?: string; role: 'buyer' | 'seller' }) => Promise<{ success: boolean }>;
+  login: (email: string, password?: string) => Promise<{ success: boolean; message?: string; user?: User }>;
+  quickLogin: (userType: 'buyer' | 'seller') => User;
+  register: (data: { name: string; email: string; phone?: string; role: 'buyer' | 'seller' }) => Promise<{ success: boolean; user?: User }>;
   updateUserProfile: (data: Partial<User>) => void;
   logout: () => void;
   toggleSaveProperty: (propertyId: string) => void;
@@ -159,7 +159,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     if (matchedUser) {
       saveUserToStorage(matchedUser);
-      return { success: true };
+      return { success: true, user: matchedUser };
     }
 
     // Allow user to login with any valid formatted email as dynamic user
@@ -172,15 +172,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       createdAt: new Date().toISOString(),
     };
     saveUserToStorage(newUser);
-    return { success: true };
+    return { success: true, user: newUser };
   };
 
   // Quick preset login helper (only Buyer and Seller)
   const quickLogin = (userType: 'buyer' | 'seller') => {
     if (userType === 'seller') {
       saveUserToStorage(DEMO_USERS[0]); // Madhu (Seller)
+      return DEMO_USERS[0];
     } else {
       saveUserToStorage(DEMO_USERS[1]); // Priya (Buyer)
+      return DEMO_USERS[1];
     }
   };
 
@@ -196,7 +198,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       createdAt: new Date().toISOString(),
     };
     saveUserToStorage(newUser);
-    return { success: true };
+    return { success: true, user: newUser };
   };
 
   const updateUserProfile = (updatedData: Partial<User>) => {
