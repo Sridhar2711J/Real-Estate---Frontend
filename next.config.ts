@@ -29,7 +29,20 @@ const nextConfig: NextConfig = {
       },
     },
   },
+  async redirects() {
+    return [
+      { source: '/bookmarks', destination: '/buyer/bookmarks', permanent: true },
+      { source: '/my-inquiries', destination: '/buyer/inquiries', permanent: true },
+      { source: '/my-profile', destination: '/buyer/profile', permanent: true },
+      { source: '/dashboard', destination: '/seller/dashboard', permanent: true },
+      { source: '/dashboard/inquiries', destination: '/seller/inquiries', permanent: true },
+      { source: '/dashboard/properties', destination: '/seller/properties', permanent: true },
+      { source: '/dashboard/properties/new', destination: '/seller/properties/new', permanent: true },
+      { source: '/dashboard/properties/:slug*', destination: '/seller/properties/:slug*', permanent: true },
+      { source: '/properties/new', destination: '/seller/properties/new', permanent: true },
+      { source: '/seller/dashborad', destination: '/seller/dashboard', permanent: true },
+    ];
+  },
 };
 
 export default nextConfig;
-

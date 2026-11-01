@@ -41,6 +41,7 @@ export interface Property {
 
   ownerId: string;
   createdAt: string;
+  status?: 'active' | 'inactive' | 'sold';
 }
 
 export interface Inquiry {

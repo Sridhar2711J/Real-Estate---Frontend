@@ -105,7 +105,7 @@ export default function HomePage() {
 
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto shrink-0">
             <Link
-              href="/dashboard/properties/new"
+              href="/seller/properties/new"
               className="px-6 py-3.5 rounded-md bg-[#e76f51] hover:bg-[#d65a3d] text-white text-xs sm:text-sm font-bold transition-all text-center shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
             >
               <span>Add Property</span>

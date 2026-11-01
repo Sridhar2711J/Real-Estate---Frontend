@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
-import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import {
   User,
@@ -16,7 +15,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 
-export default function MyProfilePage() {
+export default function BuyerProfileClient() {
   const { user, updateUserProfile, savedPropertyIds, getMyInquiries } = useAuth();
 
   const [formData, setFormData] = useState({
@@ -48,19 +47,24 @@ export default function MyProfilePage() {
         email: formData.email,
         phone: formData.phone,
       });
+
       setIsSubmitting(false);
       setSavedSuccess(true);
-      setTimeout(() => setSavedSuccess(false), 3500);
+
+      setTimeout(() => {
+        setSavedSuccess(false);
+      }, 3500);
     }, 400);
   };
 
-  const myInquiries = getMyInquiries();
-  const inquiryCount = myInquiries.length;
-  const bookmarkCount = savedPropertyIds.length;
+  const allInquiries = getMyInquiries();
+  const buyerInquiries = allInquiries.filter(
+    (inq) => !user || inq.senderId === user.id || inq.email.toLowerCase() === user.email.toLowerCase()
+  );
 
   return (
     <div className="space-y-6">
-      {/* Top Welcome & Header Card */}
+      {/* Top Header Card */}
       <div className="bg-white rounded-lg p-6 sm:p-8 border border-slate-200/80 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
@@ -72,8 +76,38 @@ export default function MyProfilePage() {
             </h1>
           </div>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            Manage your personal profile details, contact information, and account settings.
+            Manage your personal profile, credentials, and real estate inquiry preferences.
           </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/60">
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+            Verified Account
+          </span>
+        </div>
+      </div>
+
+      {/* Account Stats Preview Bar */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="bg-white p-5 rounded-lg border border-slate-200/80 shadow-xs flex items-center justify-between">
+          <div>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Bookmarked Properties</p>
+            <p className="text-2xl font-black text-slate-900 mt-1">{savedPropertyIds.length}</p>
+          </div>
+          <div className="w-10 h-10 rounded-md bg-rose-50 text-rose-500 flex items-center justify-center">
+            <Heart className="w-5 h-5 fill-rose-500" />
+          </div>
+        </div>
+
+        <div className="bg-white p-5 rounded-lg border border-slate-200/80 shadow-xs flex items-center justify-between">
+          <div>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Active Inquiries</p>
+            <p className="text-2xl font-black text-slate-900 mt-1">{buyerInquiries.length}</p>
+          </div>
+          <div className="w-10 h-10 rounded-md bg-orange-50 text-[#e76f51] flex items-center justify-center">
+            <MessageSquare className="w-5 h-5" />
+          </div>
         </div>
       </div>
 
@@ -189,3 +223,4 @@ export default function MyProfilePage() {
     </div>
   );
 }
+

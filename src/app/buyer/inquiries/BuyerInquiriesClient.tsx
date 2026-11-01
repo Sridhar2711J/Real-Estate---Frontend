@@ -7,7 +7,6 @@ import { useAuth } from '@/context/AuthContext';
 import {
   MessageSquare,
   Search,
-  ExternalLink,
   Calendar,
   Clock,
   CheckCircle,
@@ -18,7 +17,7 @@ import {
   Inbox
 } from 'lucide-react';
 
-export default function MyInquiriesPage() {
+export default function BuyerInquiriesClient() {
   const { user, getMyInquiries, properties } = useAuth();
   const [filterStatus, setFilterStatus] = useState<'all' | 'new' | 'read' | 'replied'>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -106,7 +105,7 @@ export default function MyInquiriesPage() {
             <button
               key={tab.value}
               type="button"
-              onClick={() => setFilterStatus(tab.value as any)}
+              onClick={() => setFilterStatus(tab.value as 'all' | 'new' | 'read' | 'replied')}
               className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all cursor-pointer ${
                 filterStatus === tab.value
                   ? 'bg-white text-slate-900 shadow-xs'
@@ -222,9 +221,9 @@ export default function MyInquiriesPage() {
 
                     <Link
                       href={`/property/${inq.propertySlug || inq.propertyId}`}
-                      className="inline-flex items-center gap-1 text-xs font-bold text-[#e76f51] hover:underline"
+                      className="font-bold text-[#e76f51] hover:text-[#d85e40] inline-flex items-center gap-1 transition-colors"
                     >
-                      View Property Details <ExternalLink className="w-3 h-3" />
+                      View Property Details <ArrowUpRight className="w-3.5 h-3.5" />
                     </Link>
                   </div>
                 </div>
@@ -240,16 +239,14 @@ export default function MyInquiriesPage() {
           </div>
           <h3 className="text-base sm:text-lg font-bold text-slate-900">No inquiries found</h3>
           <p className="text-xs sm:text-sm text-slate-500 max-w-md mx-auto mt-1 mb-6">
-            {searchQuery
-              ? 'No inquiries match your search filter. Try clearing the search term.'
-              : 'You haven’t submitted any inquiries or tour requests yet. Browse properties and send inquiries directly to owners or agents!'}
+            You haven&apos;t sent any property inquiries matching your search or filters yet.
           </p>
           <Link
             href="/properties"
             className="inline-flex items-center gap-2 px-6 py-2.5 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-xs sm:text-sm font-bold shadow-xs transition-all"
           >
             <Building2 className="w-4 h-4" />
-            Explore Properties Now
+            Find Your Dream Home
           </Link>
         </div>
       )}

@@ -6,15 +6,12 @@ import { useAuth } from '@/context/AuthContext';
 import PropertyCard from '@/components/property/PropertyCard';
 import {
   Heart,
-  Building2,
   Trash2,
   ArrowUpDown,
-  Filter,
   Compass,
-  CheckCircle2
 } from 'lucide-react';
 
-export default function BookmarksPage() {
+export default function BookmarksClient() {
   const { savedPropertyIds, properties, toggleSaveProperty } = useAuth();
   const [selectedType, setSelectedType] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'default' | 'price-asc' | 'price-desc'>('default');
@@ -117,7 +114,7 @@ export default function BookmarksPage() {
             </span>
             <select
               value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as any)}
+              onChange={(e) => setSortBy(e.target.value as 'default' | 'price-asc' | 'price-desc')}
               className="h-10 px-3.5 text-sm font-medium bg-white border border-slate-300 rounded-md text-slate-800 focus:outline-none focus:border-[#e76f51] focus:ring-2 focus:ring-[#e76f51]/20 transition-all cursor-pointer"
             >
               <option value="default">Default Order</option>

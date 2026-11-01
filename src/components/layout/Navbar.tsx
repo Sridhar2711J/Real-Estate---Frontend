@@ -12,7 +12,8 @@ import {
   LayoutDashboard,
   MessageSquare,
   LogOut,
-  Heart
+  Heart,
+  Building2
 } from 'lucide-react';
 
 export default function Navbar() {
@@ -53,7 +54,7 @@ export default function Navbar() {
           <div className="flex items-center gap-3 sm:gap-6">
             {/* Wishlist Link */}
             <Link
-              href="/bookmarks"
+              href="/buyer/bookmarks"
               className="relative p-2 text-slate-600 hover:text-rose-600 transition-colors"
               title="Saved properties"
             >
@@ -107,7 +108,7 @@ export default function Navbar() {
                     {user.role === 'seller' ?
                       <div className="py-1">
                         <Link
-                          href="/dashboard"
+                          href="/seller/dashboard"
                           onClick={() => setDropdownOpen(false)}
                           className="flex items-center gap-2.5 px-4 py-2 text-xs text-slate-700 hover:bg-slate-50"
                         >
@@ -115,7 +116,15 @@ export default function Navbar() {
                           My Dashboard
                         </Link>
                         <Link
-                          href="/dashboard/inquiries"
+                          href="/seller/properties"
+                          onClick={() => setDropdownOpen(false)}
+                          className="flex items-center gap-2.5 px-4 py-2 text-xs text-slate-700 hover:bg-slate-50"
+                        >
+                          <Building2 className="w-4 h-4 text-slate-500" />
+                          My Properties
+                        </Link>
+                        <Link
+                          href="/seller/inquiries"
                           onClick={() => setDropdownOpen(false)}
                           className="flex items-center justify-between px-4 py-2 text-xs text-slate-700 hover:bg-slate-50"
                         >
@@ -130,7 +139,7 @@ export default function Navbar() {
                           )}
                         </Link>
                         <Link
-                          href="/my-profile"
+                          href="/seller/profile"
                           onClick={() => setDropdownOpen(false)}
                           className="flex items-center gap-2.5 px-4 py-2 text-xs text-slate-700 hover:bg-slate-50"
                         >
@@ -138,7 +147,7 @@ export default function Navbar() {
                           My Profile
                         </Link>
                         <Link
-                          href="/bookmarks"
+                          href="/buyer/bookmarks"
                           onClick={() => setDropdownOpen(false)}
                           className="flex items-center justify-between px-4 py-2 text-xs text-slate-700 hover:bg-slate-50"
                         >
@@ -155,7 +164,7 @@ export default function Navbar() {
                       </div> :
                       <div className="py-1">
                         <Link
-                          href="/my-profile"
+                          href="/buyer/profile"
                           onClick={() => setDropdownOpen(false)}
                           className="flex items-center gap-2.5 px-4 py-2 text-xs text-slate-700 hover:bg-slate-50"
                         >
@@ -163,7 +172,7 @@ export default function Navbar() {
                           My Profile
                         </Link>
                         <Link
-                          href="/my-inquiries"
+                          href="/buyer/inquiries"
                           onClick={() => setDropdownOpen(false)}
                           className="flex items-center justify-between px-4 py-2 text-xs text-slate-700 hover:bg-slate-50"
                         >
@@ -173,7 +182,7 @@ export default function Navbar() {
                           </span>
                         </Link>
                         <Link
-                          href="/bookmarks"
+                          href="/buyer/bookmarks"
                           onClick={() => setDropdownOpen(false)}
                           className="flex items-center justify-between px-4 py-2 text-xs text-slate-700 hover:bg-slate-50"
                         >
@@ -217,13 +226,14 @@ export default function Navbar() {
             )}
 
             {/* "Add property ↗" button */}
+            {user?.role !== 'seller' && (             
             <Link
-              href="/dashboard/properties/new"
+              href="/seller/properties/new"
               className="inline-flex items-center gap-1.5 px-4 sm:px-5 py-2.5 rounded-md border border-slate-900 text-slate-950 hover:bg-slate-950 hover:text-white transition-all text-xs sm:text-[13px] font-bold shadow-2xs group shrink-0"
             >
               <span>Add property</span>
               <ArrowUpRight className="w-4 h-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-            </Link>
+            </Link>)}
           </div>
         </div>
       </div>

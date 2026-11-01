@@ -184,7 +184,7 @@ export default async function PropertyDetailPage({ params }: PropertyDetailPageP
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
       )}
-      <PropertyDetailClient slug={slug} initialProperty={property} />
+      <PropertyDetailClient />
     </>
   );
 }

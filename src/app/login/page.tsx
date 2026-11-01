@@ -65,7 +65,7 @@ export default function LoginPage() {
         if (res.user?.role === 'buyer') {
           router.push('/');
         } else {
-          router.push('/dashboard');
+          router.push('/seller/dashboard');
         }
       } else {
         setError(res.message || 'Login failed. Please check your credentials.');
@@ -81,7 +81,7 @@ export default function LoginPage() {
     quickLogin(type);
     if (type === 'seller') {
       setEmail('info.madhu786@gmail.com');
-      router.push('/dashboard');
+      router.push('/seller/dashboard');
     } else {
       setEmail('priya.verma@example.com');
       router.push('/');

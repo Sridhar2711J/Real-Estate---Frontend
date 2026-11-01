@@ -67,7 +67,7 @@ export default function RegisterPage() {
         if (role === 'buyer') {
           router.push('/');
         } else {
-          router.push('/dashboard');
+          router.push('/seller/dashboard');
         }
       }
     } catch {

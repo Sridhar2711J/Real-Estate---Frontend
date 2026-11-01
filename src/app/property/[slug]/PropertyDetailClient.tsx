@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { formatPrice, calculateSimilarProperties } from '@/lib/propertyUtils';
 import PropertyCard from '@/components/property/PropertyCard';
@@ -21,12 +22,15 @@ import {
   ChevronLeft
 } from 'lucide-react';
 
-interface PropertyDetailClientProps {
-  slug: string;
-  initialProperty?: Property;
-}
+export default function PropertyDetailClient() {
+  const params = useParams();
+  const slug =
+    typeof params?.slug === 'string'
+      ? params.slug
+      : Array.isArray(params?.slug)
+      ? params.slug[0]
+      : '';
 
-export default function PropertyDetailClient({ slug, initialProperty }: PropertyDetailClientProps) {
   const {
     properties,
     user,
@@ -35,7 +39,7 @@ export default function PropertyDetailClient({ slug, initialProperty }: Property
     submitInquiry
   } = useAuth();
 
-  const property = properties.find((p) => p.id === slug) || initialProperty;
+  const property = properties.find((p) => p.id === slug);
 
   // Gallery state
   const [activeImageIndex, setActiveImageIndex] = useState(0);

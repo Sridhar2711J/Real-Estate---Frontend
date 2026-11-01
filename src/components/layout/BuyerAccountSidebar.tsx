@@ -30,14 +30,14 @@ export default function BuyerAccountSidebar() {
     const navItems = [
         {
             name: 'My Profile',
-            href: '/my-profile',
+            href: '/buyer/profile',
             icon: User,
             description: 'Account settings & info',
             badge: null,
         },
         {
             name: 'My Inquiries',
-            href: '/my-inquiries',
+            href: '/buyer/inquiries',
             icon: MessageSquare,
             description: 'Messages & tour requests',
             badge: inquiryCount > 0 ? inquiryCount : null,
@@ -45,7 +45,7 @@ export default function BuyerAccountSidebar() {
         },
         {
             name: 'Bookmark',
-            href: '/bookmarks',
+            href: '/buyer/bookmarks',
             icon: Heart,
             description: 'Saved favorite properties',
             badge: bookmarkCount > 0 ? bookmarkCount : null,
@@ -54,7 +54,7 @@ export default function BuyerAccountSidebar() {
     ];
 
     const isActive = (href: string) => {
-        return pathname === href;
+        return pathname === href || pathname.startsWith(href + '/');
     };
 
     return (
