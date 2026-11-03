@@ -45,11 +45,12 @@ export default function SellerProfileClient() {
     }
   }, [user]);
 
+  const safeProperties = Array.isArray(properties) ? properties : [];
   const myProperties = useMemo(() => {
-    return properties.filter((p) => !user || p.ownerId === user.id || user.role === 'seller');
-  }, [properties, user]);
+    return safeProperties.filter((p) => !user || p.ownerId === user.id || user.role === 'seller');
+  }, [safeProperties, user]);
 
-  const allInquiries = getMyInquiries();
+  const allInquiries = typeof getMyInquiries === 'function' ? getMyInquiries() : [];
   const totalPortfolioValue = myProperties.reduce((sum, p) => sum + (p.price || 0), 0);
 
   const handleSubmit = (e: React.FormEvent) => {

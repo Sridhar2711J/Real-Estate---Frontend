@@ -4,6 +4,8 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useAuth } from '@/context/AuthContext';
+import { INITIAL_PROPERTIES } from '@/data/mockProperties';
+import { Property } from '@/types';
 import HeroSearch from '@/components/home/HeroSearch';
 import PropertyCard from '@/components/property/PropertyCard';
 import {
@@ -13,7 +15,10 @@ import {
 } from 'lucide-react';
 
 export default function HomePage() {
-  const { properties } = useAuth();
+  const auth = useAuth() as any;
+  const properties: Property[] = Array.isArray(auth?.properties) && auth.properties.length > 0
+    ? auth.properties
+    : INITIAL_PROPERTIES;
 
   const featuredProperties = properties.slice(0, 6);
 

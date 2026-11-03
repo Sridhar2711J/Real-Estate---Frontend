@@ -35,10 +35,13 @@ export default function SellerPropertiesClient() {
   // Delete modal state
   const [propertyToDelete, setPropertyToDelete] = useState<{ id: string; title: string } | null>(null);
 
+  const safeProperties = Array.isArray(properties) ? properties : [];
+  const safeInquiries = Array.isArray(inquiries) ? inquiries : [];
+
   // Relevant properties for the logged-in seller
   const sellerProperties = useMemo(() => {
-    return properties.filter((p) => !user || p.ownerId === user.id || user.role === 'seller');
-  }, [properties, user]);
+    return safeProperties.filter((p) => !user || p.ownerId === user.id || user.role === 'seller');
+  }, [safeProperties, user]);
 
   // Available unique cities for filter dropdown
   const uniqueCities = useMemo(() => {
@@ -84,7 +87,7 @@ export default function SellerPropertiesClient() {
 
   // Count inquiries per property
   const getInquiryCount = (propertyId: string) => {
-    return inquiries.filter((inq) => inq.propertyId === propertyId).length;
+    return safeInquiries.filter((inq) => inq.propertyId === propertyId).length;
   };
 
   // Direct inline status change

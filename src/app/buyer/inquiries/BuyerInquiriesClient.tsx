@@ -30,11 +30,12 @@ export default function BuyerInquiriesClient() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedInquiry, setSelectedInquiry] = useState<Inquiry | null>(null);
 
-  const allInquiries = getMyInquiries();
+  const allInquiries = typeof getMyInquiries === 'function' ? getMyInquiries() : [];
+  const safeInquiries = Array.isArray(allInquiries) ? allInquiries : [];
 
   // If user is buyer, show inquiries sent by user or matching user's email;
   // If no user or demo, show all available inquiries for preview
-  const relevantInquiries = allInquiries.filter((inq) => {
+  const relevantInquiries = safeInquiries.filter((inq) => {
     if (!user) return true;
     if (user.role === 'buyer') {
       return (

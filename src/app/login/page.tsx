@@ -5,7 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { Eye, EyeOff, Sparkles, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Eye, EyeOff, ChevronLeft, ChevronRight } from 'lucide-react';
 
 const CAROUSEL_SLIDES = [
   {
@@ -24,11 +24,12 @@ const CAROUSEL_SLIDES = [
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login, quickLogin } = useAuth();
+  const auth = useAuth() as any;
+  const login = auth?.login;
 
   const [currentSlide, setCurrentSlide] = useState(0);
-  const [email, setEmail] = useState('info.madhu786@gmail.com');
-  const [password, setPassword] = useState('password123');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -74,17 +75,6 @@ export default function LoginPage() {
       setError('An unexpected error occurred.');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleQuickDemo = (type: 'buyer' | 'seller') => {
-    quickLogin(type);
-    if (type === 'seller') {
-      setEmail('info.madhu786@gmail.com');
-      router.push('/seller/dashboard');
-    } else {
-      setEmail('priya.verma@example.com');
-      router.push('/');
     }
   };
 
@@ -208,35 +198,6 @@ export default function LoginPage() {
             </p>
           </div>
 
-          {/* Demo Quick Fill Switcher */}
-          <div className="mb-6 p-3 bg-slate-50 border border-slate-200/70 rounded-lg">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                Quick 1-Click Demo Login:
-              </span>
-              <span className="text-[10px] text-emerald-600 font-semibold bg-emerald-50 px-2 py-0.5 rounded-md">
-                No typing needed
-              </span>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => handleQuickDemo('seller')}
-                className="py-1.5 px-3 text-[11px] font-semibold rounded-md bg-white border border-slate-200 text-slate-800 hover:bg-[#e76f51] hover:border-[#e76f51] hover:text-white transition-colors text-center shadow-xs cursor-pointer"
-              >
-                Seller (Madhu)
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickDemo('buyer')}
-                className="py-1.5 px-3 text-[11px] font-semibold rounded-md bg-white border border-slate-200 text-slate-800 hover:bg-[#e76f51] hover:border-[#e76f51] hover:text-white transition-colors text-center shadow-xs cursor-pointer"
-              >
-                Buyer (Priya)
-              </button>
-            </div>
-          </div>
-
           {error && (
             <div className="mb-5 p-3.5 text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-md">
               {error}
@@ -258,7 +219,7 @@ export default function LoginPage() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="info.madhu786@gmail.com"
+                  placeholder="you@example.com"
                   required
                   className="w-full h-10 px-3.5 text-sm font-medium rounded-md border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#e76f51] focus:ring-2 focus:ring-[#e76f51]/20 transition-all"
                 />
@@ -310,13 +271,12 @@ export default function LoginPage() {
                 <span>Remember Me</span>
               </label>
 
-              <button
-                type="button"
-                onClick={() => alert('Password reset link sent to ' + email)}
+              <Link
+                href="/forgot-password"
                 className="text-slate-500 hover:text-[#e76f51] transition-colors font-medium cursor-pointer"
               >
                 Forgot Password?
-              </button>
+              </Link>
             </div>
 
             {/* Big Login Button */}

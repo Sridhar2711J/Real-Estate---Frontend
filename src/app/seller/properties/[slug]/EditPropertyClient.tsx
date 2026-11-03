@@ -46,7 +46,7 @@ export default function EditPropertyClient() {
   const { properties, updateProperty, deleteProperty } = useAuth();
 
   // Locate the target property
-  const property = properties.find((p) => p.id === propertyId);
+  const property = Array.isArray(properties) ? properties.find((p) => p.id === propertyId) : undefined;
 
   // Form states
   const [title, setTitle] = useState('');

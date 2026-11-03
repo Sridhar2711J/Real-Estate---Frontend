@@ -36,7 +36,7 @@ export default function SellerInquiriesClient() {
   const [replyMessage, setReplyMessage] = useState('');
   const [replySent, setReplySent] = useState(false);
 
-  const allInquiries = getMyInquiries();
+  const allInquiries = typeof getMyInquiries === 'function' ? getMyInquiries() : [];
 
   // Status counts for filter chips
   const countNew = allInquiries.filter((i) => i.status === 'new').length;

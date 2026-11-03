@@ -5,6 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
+import Toast, { ToastType } from '@/components/common/Toast';
 import { Eye, EyeOff, Sparkles, ChevronLeft, ChevronRight } from 'lucide-react';
 
 const CAROUSEL_SLIDES = [
@@ -32,9 +33,12 @@ export default function RegisterPage() {
   const [phone, setPhone] = useState('');
   const [role, setRole] = useState<'buyer' | 'seller'>('seller');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ message: string; title?: string; type: ToastType } | null>(null);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -55,32 +59,70 @@ export default function RegisterPage() {
     e.preventDefault();
     setError(null);
 
-    if (!name || !email || !password) {
+    if (!name.trim() || !email.trim() || !password || !confirmPassword) {
       setError('Please fill in all mandatory fields.');
+      return;
+    }
+
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters long.');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError('Passwords do not match. Please re-enter.');
       return;
     }
 
     setLoading(true);
     try {
-      const res = await register({ name, email, phone, role });
-      if (res.success) {
-        if (role === 'buyer') {
-          router.push('/');
-        } else {
-          router.push('/seller/dashboard');
-        }
+      const res = await register({
+        name: name.trim(),
+        email: email.trim(),
+        password,
+        phone: phone.trim() || undefined,
+        role,
+      });
+
+      const isSuccess = Boolean(
+        res?.success ||
+        (res?.message && res.message.toLowerCase().includes('success'))
+      );
+
+      if (isSuccess) {
+        setError(null);
+        setToast({
+          type: 'success',
+          title: 'Registration Successful!',
+          message: res.message || 'Your account has been created. Redirecting to login page...',
+        });
+        setTimeout(() => {
+          router.push('/login');
+        }, 2000);
+      } else {
+        setError(res.message || 'Registration failed. Please try again.');
+        setLoading(false);
       }
     } catch {
-      setError('Registration failed. Please try again.');
-    } finally {
+      setError('Registration failed. Please check your connection and try again.');
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen w-full flex flex-col md:flex-row bg-white text-slate-900 font-sans">
+    <div className="min-h-screen md:h-screen w-full flex flex-col md:flex-row bg-white text-slate-900 font-sans relative md:overflow-hidden">
+      {/* Top Center Common Toast Notification */}
+      {toast && (
+        <Toast
+          type={toast.type}
+          title={toast.title}
+          message={toast.message}
+          onClose={() => setToast(null)}
+        />
+      )}
+
       {/* LEFT SPLIT PANEL: Interactive Cursor-Based Carousel */}
-      <div className="relative w-full md:w-1/2 min-h-[420px] md:min-h-screen flex flex-col justify-between p-8 sm:p-12 overflow-hidden bg-slate-950">
+      <div className="relative w-full md:w-1/2 min-h-[360px] md:h-full flex flex-col justify-between p-6 sm:p-10 lg:p-12 overflow-hidden bg-slate-950 shrink-0">
         {/* Background Images Carousel with smooth crossfade */}
         {CAROUSEL_SLIDES.map((slide, idx) => (
           <div
@@ -119,7 +161,7 @@ export default function RegisterPage() {
         </div>
 
         {/* Bottom-Left: Dynamic Content & Cursor-Based Indicators */}
-        <div className="relative z-10 max-w-lg mt-auto pt-16">
+        <div className="relative z-10 max-w-lg mt-auto pt-10 sm:pt-16">
           <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tight leading-tight drop-shadow-md transition-all duration-300">
             {CAROUSEL_SLIDES[currentSlide].title}
           </h1>
@@ -129,7 +171,7 @@ export default function RegisterPage() {
           </div>
 
           {/* Interactive Cursor-Based Carousel Controls (clickable dots + arrows) */}
-          <div className="mt-8 flex items-center justify-between">
+          <div className="mt-6 sm:mt-8 flex items-center justify-between">
             <div className="flex items-center gap-2">
               {CAROUSEL_SLIDES.map((_, idx) => (
                 <button
@@ -169,8 +211,8 @@ export default function RegisterPage() {
       </div>
 
       {/* Right side form */}
-      <div className="w-full md:w-1/2 min-h-screen flex flex-col justify-between p-6 sm:p-12 lg:p-16 bg-white overflow-y-auto">
-        <div className="flex items-center justify-between gap-3 w-full pb-4">
+      <div className="w-full md:w-1/2 h-full flex flex-col justify-between p-4 sm:p-6 lg:px-12 lg:py-6 bg-white overflow-y-auto">
+        <div className="flex items-center justify-between gap-3 w-full pb-2 shrink-0">
           <Link
             href="/"
             className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-[#e76f51] transition-colors"
@@ -179,39 +221,39 @@ export default function RegisterPage() {
           </Link>
           <Link
             href="/login"
-            className="px-5 py-2 rounded-md bg-[#e76f51] hover:bg-[#d85e40] text-white text-xs sm:text-sm font-bold shadow-xs hover:shadow-sm shadow-[#e76f51]/20 transition-all"
+            className="px-4 py-1.5 sm:px-5 sm:py-2 rounded-md bg-[#e76f51] hover:bg-[#d85e40] text-white text-xs sm:text-sm font-bold shadow-xs hover:shadow-sm shadow-[#e76f51]/20 transition-all"
           >
             Sign in
           </Link>
         </div>
 
-        <div className="max-w-md w-full mx-auto my-auto py-2">
-          <div className="text-left mb-6">
-            <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+        <div className="max-w-md w-full mx-auto my-auto py-1">
+          <div className="text-left mb-3 sm:mb-4">
+            <h2 className="text-xl sm:text-2xl lg:text-3xl font-black text-slate-900 tracking-tight">
               Create an Account
             </h2>
-            <p className="text-sm text-slate-500 mt-2 font-medium">
+            <p className="text-xs sm:text-sm text-slate-500 mt-1 font-medium">
               Get started with free property search and listings
             </p>
           </div>
 
           {error && (
-            <div className="mb-5 p-3.5 text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-md">
+            <div className="mb-3 sm:mb-4 p-3 text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-md">
               {error}
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-2.5 sm:space-y-3">
             {/* Account Role Choice */}
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">
+              <label className="block text-[11px] sm:text-xs font-bold text-slate-700 mb-1">
                 Select Your Role <span className="text-red-500">*</span>
               </label>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-2.5">
                 <button
                   type="button"
                   onClick={() => setRole('seller')}
-                  className={`py-2.5 px-3 text-xs font-bold rounded-md border transition-all text-center cursor-pointer ${
+                  className={`py-2 px-3 text-xs font-bold rounded-md border transition-all text-center cursor-pointer ${
                     role === 'seller'
                       ? 'border-[#e76f51] bg-[#e76f51] text-white shadow-xs'
                       : 'border-slate-200 bg-white text-slate-700 hover:border-[#e76f51]/50 hover:text-[#e76f51]'
@@ -222,7 +264,7 @@ export default function RegisterPage() {
                 <button
                   type="button"
                   onClick={() => setRole('buyer')}
-                  className={`py-2.5 px-3 text-xs font-bold rounded-md border transition-all text-center cursor-pointer ${
+                  className={`py-2 px-3 text-xs font-bold rounded-md border transition-all text-center cursor-pointer ${
                     role === 'buyer'
                       ? 'border-[#e76f51] bg-[#e76f51] text-white shadow-xs'
                       : 'border-slate-200 bg-white text-slate-700 hover:border-[#e76f51]/50 hover:text-[#e76f51]'
@@ -235,7 +277,7 @@ export default function RegisterPage() {
 
             {/* Full Name */}
             <div>
-              <label htmlFor="name" className="block text-xs font-bold text-slate-700 mb-1.5">
+              <label htmlFor="name" className="block text-[11px] sm:text-xs font-bold text-slate-700 mb-1">
                 Full Name <span className="text-red-500">*</span>
               </label>
               <input
@@ -243,15 +285,15 @@ export default function RegisterPage() {
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. Madhu Sharma"
+                placeholder="e.g. John Doe"
                 required
-                className="w-full h-10 px-3.5 text-sm font-medium rounded-md border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#e76f51] focus:ring-2 focus:ring-[#e76f51]/20 transition-all"
+                className="w-full h-9 sm:h-9.5 px-3 text-xs sm:text-sm font-medium rounded-md border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#e76f51] focus:ring-2 focus:ring-[#e76f51]/20 transition-all"
               />
             </div>
 
             {/* Email */}
             <div>
-              <label htmlFor="email" className="block text-xs font-bold text-slate-700 mb-1.5">
+              <label htmlFor="email" className="block text-[11px] sm:text-xs font-bold text-slate-700 mb-1">
                 Email Address <span className="text-red-500">*</span>
               </label>
               <input
@@ -259,15 +301,15 @@ export default function RegisterPage() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="info.madhu786@gmail.com"
+                placeholder="you@example.com"
                 required
-                className="w-full h-10 px-3.5 text-sm font-medium rounded-md border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#e76f51] focus:ring-2 focus:ring-[#e76f51]/20 transition-all"
+                className="w-full h-9 sm:h-9.5 px-3 text-xs sm:text-sm font-medium rounded-md border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#e76f51] focus:ring-2 focus:ring-[#e76f51]/20 transition-all"
               />
             </div>
 
             {/* Phone */}
             <div>
-              <label htmlFor="phone" className="block text-xs font-bold text-slate-700 mb-1.5">
+              <label htmlFor="phone" className="block text-[11px] sm:text-xs font-bold text-slate-700 mb-1">
                 Phone Number (Optional)
               </label>
               <input
@@ -276,13 +318,13 @@ export default function RegisterPage() {
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder="+91 98765 43210"
-                className="w-full h-10 px-3.5 text-sm font-medium rounded-md border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#e76f51] focus:ring-2 focus:ring-[#e76f51]/20 transition-all"
+                className="w-full h-9 sm:h-9.5 px-3 text-xs sm:text-sm font-medium rounded-md border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#e76f51] focus:ring-2 focus:ring-[#e76f51]/20 transition-all"
               />
             </div>
 
             {/* Password */}
             <div>
-              <label htmlFor="password" className="block text-xs font-bold text-slate-700 mb-1.5">
+              <label htmlFor="password" className="block text-[11px] sm:text-xs font-bold text-slate-700 mb-1">
                 Password <span className="text-red-500">*</span>
               </label>
               <div className="relative">
@@ -291,16 +333,43 @@ export default function RegisterPage() {
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="At least 8 characters"
+                  placeholder="At least 6 characters"
                   required
-                  className="w-full h-10 pl-3.5 pr-10 text-sm font-medium rounded-md border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#e76f51] focus:ring-2 focus:ring-[#e76f51]/20 transition-all"
+                  className="w-full h-9 sm:h-9.5 pl-3 pr-9 text-xs sm:text-sm font-medium rounded-md border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#e76f51] focus:ring-2 focus:ring-[#e76f51]/20 transition-all"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+
+            {/* Confirm Password */}
+            <div>
+              <label htmlFor="confirmPassword" className="block text-[11px] sm:text-xs font-bold text-slate-700 mb-1">
+                Confirm Password <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <input
+                  id="confirmPassword"
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Re-enter your password"
+                  required
+                  className="w-full h-9 sm:h-9.5 pl-3 pr-9 text-xs sm:text-sm font-medium rounded-md border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#e76f51] focus:ring-2 focus:ring-[#e76f51]/20 transition-all"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
+                  aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
             </div>
@@ -308,17 +377,17 @@ export default function RegisterPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full h-10 px-4 rounded-md bg-[#e76f51] hover:bg-[#d85e40] text-white text-sm font-bold tracking-wide transition-all shadow-sm shadow-[#e76f51]/25 hover:shadow-md hover:shadow-[#e76f51]/35 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-4 cursor-pointer"
+              className="w-full h-9.5 sm:h-10 px-4 rounded-md bg-[#e76f51] hover:bg-[#d85e40] text-white text-xs sm:text-sm font-bold tracking-wide transition-all shadow-sm shadow-[#e76f51]/25 hover:shadow-md hover:shadow-[#e76f51]/35 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-3 sm:mt-4 cursor-pointer"
             >
               {loading ? (
-                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
               ) : (
                 <span>Register &amp; Continue</span>
               )}
             </button>
           </form>
 
-          <div className="mt-6 text-center text-xs text-slate-500 font-medium">
+          <div className="mt-3 sm:mt-4 text-center text-xs text-slate-500 font-medium">
             <span>Already have an account? </span>
             <Link href="/login" className="text-[#e76f51] hover:text-[#d85e40] font-bold hover:underline transition-colors">
               Log in
@@ -326,7 +395,7 @@ export default function RegisterPage() {
           </div>
         </div>
 
-        <div className="text-center text-[11px] text-slate-400 pt-4 font-medium">
+        <div className="text-center text-[10px] sm:text-[11px] text-slate-400 pt-2 sm:pt-3 font-medium shrink-0">
           By signing up, you agree to Realnest Terms of Service and Privacy Policy.
         </div>
       </div>

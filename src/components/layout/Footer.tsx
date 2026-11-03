@@ -17,8 +17,13 @@ export default function Footer() {
   const [newsletterEmail, setNewsletterEmail] = useState('');
   const [subscribed, setSubscribed] = useState(false);
 
-  // Do not render footer on auth pages or seller portal pages
-  if (pathname === '/login' || pathname === '/register' || pathname.startsWith('/seller')) {
+  // Do not render footer on auth split screens or seller portal pages
+  if (
+    pathname === '/login' ||
+    pathname === '/register' ||
+    pathname === '/forgot-password' ||
+    pathname.startsWith('/seller')
+  ) {
     return null;
   }
 

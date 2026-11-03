@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Property } from '@/types';
@@ -22,8 +22,59 @@ interface PropertyCardProps {
 }
 
 export default function PropertyCard({ property, showSimilarityScore = false }: PropertyCardProps) {
-  const { isPropertySaved, toggleSaveProperty } = useAuth();
-  const saved = isPropertySaved(property.id);
+  const auth = useAuth() as ReturnType<typeof useAuth> & {
+    isPropertySaved?: (id: string) => boolean;
+    toggleSaveProperty?: (id: string) => void;
+    savedPropertyIds?: string[];
+  };
+
+  const [saved, setSaved] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (typeof auth?.isPropertySaved === 'function') {
+      setSaved(Boolean(auth.isPropertySaved(property.id)));
+    } else if (Array.isArray(auth?.savedPropertyIds)) {
+      setSaved(auth.savedPropertyIds.includes(property.id));
+    } else {
+      try {
+        const stored = typeof window !== 'undefined' ? localStorage.getItem('realnest_saved_properties') : null;
+        if (stored) {
+          const ids: string[] = JSON.parse(stored);
+          setSaved(Array.isArray(ids) && ids.includes(property.id));
+        }
+      } catch {
+        // ignore storage parse error
+      }
+    }
+  }, [auth, property.id]);
+
+  const handleToggleSave = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (typeof auth?.toggleSaveProperty === 'function') {
+      auth.toggleSaveProperty(property.id);
+      setSaved((prev) => !prev);
+      return;
+    }
+
+    try {
+      const stored = typeof window !== 'undefined' ? localStorage.getItem('realnest_saved_properties') : null;
+      let ids: string[] = stored ? JSON.parse(stored) : [];
+      if (!Array.isArray(ids)) ids = [];
+
+      if (ids.includes(property.id)) {
+        ids = ids.filter((id) => id !== property.id);
+        setSaved(false);
+      } else {
+        ids.push(property.id);
+        setSaved(true);
+      }
+      localStorage.setItem('realnest_saved_properties', JSON.stringify(ids));
+    } catch {
+      setSaved((prev) => !prev);
+    }
+  };
 
   return (
     <div className="group bg-white rounded-lg overflow-hidden border border-slate-200/80 hover:border-slate-300 hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200 flex flex-col">
@@ -52,11 +103,7 @@ export default function PropertyCard({ property, showSimilarityScore = false }: 
         {/* Save Bookmark Heart Button */}
         <button
           type="button"
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            toggleSaveProperty(property.id);
-          }}
+          onClick={handleToggleSave}
           className={`absolute top-3 right-3 z-10 p-2 rounded-md backdrop-blur-md transition-all shadow-sm cursor-pointer ${
             saved
               ? 'bg-rose-500 text-white hover:bg-rose-600'

@@ -118,11 +118,14 @@ function PropertiesContent() {
   };
 
   // Filter & Sort computation
+  const safeProperties = Array.isArray(properties) ? properties : [];
+  const safeSavedIds = Array.isArray(savedPropertyIds) ? savedPropertyIds : [];
+
   const filteredProperties = useMemo(() => {
-    return properties.filter((p) => {
+    return safeProperties.filter((p) => {
       if (!p) return false;
 
-      if (savedOnly && !savedPropertyIds.includes(p.id)) {
+      if (savedOnly && !safeSavedIds.includes(p.id)) {
         return false;
       }
       if (city && (p.city || '').toLowerCase() !== city.toLowerCase()) {

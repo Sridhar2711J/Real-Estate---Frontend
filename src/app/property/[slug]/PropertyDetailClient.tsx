@@ -39,7 +39,8 @@ export default function PropertyDetailClient() {
     submitInquiry
   } = useAuth();
 
-  const property = properties.find((p) => p.id === slug);
+  const safeProperties = Array.isArray(properties) ? properties : [];
+  const property = safeProperties.find((p) => p.id === slug);
 
   // Gallery state
   const [activeImageIndex, setActiveImageIndex] = useState(0);
@@ -75,8 +76,8 @@ export default function PropertyDetailClient() {
     );
   }
 
-  const saved = isPropertySaved(property.id);
-  const similarProperties = calculateSimilarProperties(property, properties.length ? properties : [property], 3);
+  const saved = typeof isPropertySaved === 'function' ? isPropertySaved(property.id) : false;
+  const similarProperties = calculateSimilarProperties(property, safeProperties.length ? safeProperties : [property], 3);
   const pricePerSqft = Math.round(property.price / (property.area || 1));
 
   const handleInquirySubmit = (e: React.FormEvent) => {
@@ -87,6 +88,10 @@ export default function PropertyDetailClient() {
     setTimeout(() => {
       const res = submitInquiry({
         propertyId: property.id,
+        propertyTitle: property.title,
+        propertySlug: property.id,
+        propertyCity: property.city,
+        propertyCoverImage: property.coverImage,
         name: inquiryName,
         email: inquiryEmail,
         phone: inquiryPhone,
@@ -95,11 +100,11 @@ export default function PropertyDetailClient() {
       });
 
       setInquiryLoading(false);
-      if (res.success) {
+      if (res?.success) {
         setInquiryFeedback({ type: 'success', text: res.message });
         setInquiryMessage('');
       } else {
-        setInquiryFeedback({ type: 'error', text: res.message });
+        setInquiryFeedback({ type: 'error', text: res?.message || 'Failed to submit inquiry.' });
       }
     }, 400);
   };

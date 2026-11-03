@@ -17,15 +17,38 @@ import {
 
 export default function BuyerAccountSidebar() {
     const pathname = usePathname();
-    const { user, logout, savedPropertyIds, getMyInquiries } = useAuth();
+    const auth = useAuth() as any;
+    const user = auth?.user;
+    const logout = auth?.logout || (() => {});
+    const [savedCount, setSavedCount] = React.useState<number>(0);
 
-    const myInquiries = getMyInquiries();
+    React.useEffect(() => {
+        if (Array.isArray(auth?.savedPropertyIds)) {
+            setSavedCount(auth.savedPropertyIds.length);
+        } else {
+            try {
+                const stored = typeof window !== 'undefined' ? localStorage.getItem('realnest_saved_properties') : null;
+                if (stored) {
+                    const ids = JSON.parse(stored);
+                    if (Array.isArray(ids)) {
+                        setSavedCount(ids.length);
+                    }
+                }
+            } catch {
+                // ignore
+            }
+        }
+    }, [auth?.savedPropertyIds]);
+
+    const myInquiries = typeof auth?.getMyInquiries === 'function' ? auth.getMyInquiries() : [];
     // Inquiries sent by buyer
-    const userInquiries = myInquiries.filter(
-        (inq) => !user || inq.senderId === user.id || inq.email.toLowerCase() === user.email.toLowerCase()
-    );
+    const userInquiries = Array.isArray(myInquiries)
+        ? myInquiries.filter(
+            (inq: any) => !user || inq.senderId === user.id || inq.email.toLowerCase() === user.email.toLowerCase()
+        )
+        : [];
     const inquiryCount = userInquiries.length > 0 ? userInquiries.length : myInquiries.length;
-    const bookmarkCount = savedPropertyIds.length;
+    const bookmarkCount = Array.isArray(auth?.savedPropertyIds) ? auth.savedPropertyIds.length : savedCount;
 
     const navItems = [
         {

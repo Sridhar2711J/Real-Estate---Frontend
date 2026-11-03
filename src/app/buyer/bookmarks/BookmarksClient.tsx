@@ -16,8 +16,11 @@ export default function BookmarksClient() {
   const [selectedType, setSelectedType] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'default' | 'price-asc' | 'price-desc'>('default');
 
+  const safeProperties = Array.isArray(properties) ? properties : [];
+  const safeSavedIds = Array.isArray(savedPropertyIds) ? savedPropertyIds : [];
+
   // Filter properties matching savedPropertyIds
-  const savedProperties = properties.filter((prop) => savedPropertyIds.includes(prop.id));
+  const savedProperties = safeProperties.filter((prop) => safeSavedIds.includes(prop.id));
 
   // Filter by property type
   const filteredProperties = savedProperties.filter((prop) => {

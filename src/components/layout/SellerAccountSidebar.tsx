@@ -18,15 +18,22 @@ import {
 
 export default function SellerAccountSidebar() {
   const pathname = usePathname();
-  const { user, logout, properties, getMyInquiries } = useAuth();
+  const auth = useAuth() as any;
+  const user = auth?.user;
+  const logout = auth?.logout || (() => {});
+  const properties = auth?.properties;
+  const getMyInquiries = auth?.getMyInquiries;
 
   // Seller's properties count
-  const myProperties = properties.filter((p) => !user || p.ownerId === user.id || user.role === 'seller');
+  const safeProperties = Array.isArray(properties) ? properties : [];
+  const myProperties = safeProperties.filter((p: any) => !user || p.ownerId === user.id || user?.role === 'seller');
   const propertyCount = myProperties.length;
 
   // Inquiries for seller
-  const allInquiries = getMyInquiries();
-  const unreadInquiries = allInquiries.filter((inq) => inq.status === 'new').length;
+  const allInquiries = typeof getMyInquiries === 'function' ? getMyInquiries() : [];
+  const unreadInquiries = Array.isArray(allInquiries)
+    ? allInquiries.filter((inq: any) => inq.status === 'new').length
+    : 0;
 
   const navItems = [
     {

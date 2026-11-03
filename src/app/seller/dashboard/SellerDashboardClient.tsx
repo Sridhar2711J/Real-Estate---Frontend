@@ -19,12 +19,16 @@ import {
 export default function SellerDashboardClient() {
   const { user, properties, getMyInquiries } = useAuth();
 
-  const myProperties = useMemo(() => {
-    return properties.filter((p) => !user || p.ownerId === user.id || user.role === 'seller');
-  }, [properties, user]);
+  const safeProperties = Array.isArray(properties) ? properties : [];
 
-  const allInquiries = getMyInquiries();
-  const unreadInquiries = allInquiries.filter((inq) => inq.status === 'new').length;
+  const myProperties = useMemo(() => {
+    return safeProperties.filter((p) => !user || p.ownerId === user.id || user.role === 'seller');
+  }, [safeProperties, user]);
+
+  const allInquiries = typeof getMyInquiries === 'function' ? getMyInquiries() : [];
+  const unreadInquiries = Array.isArray(allInquiries)
+    ? allInquiries.filter((inq) => inq.status === 'new').length
+    : 0;
   const soldPropertiesCount = myProperties.filter((p) => p.status === 'sold').length;
 
   return (

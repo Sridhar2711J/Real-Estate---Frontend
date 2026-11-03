@@ -19,17 +19,37 @@ import {
 
 export default function Navbar() {
   const pathname = usePathname();
-  const { user, logout, savedPropertyIds, getMyInquiries } = useAuth();
+  const auth = useAuth() as any;
+  const user = auth?.user;
+  const logout = auth?.logout || (() => {});
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [localSavedIds, setLocalSavedIds] = useState<string[]>([]);
 
-  // Hide on login/register split screens
-  if (pathname === '/login' || pathname === '/register') {
+  React.useEffect(() => {
+    try {
+      const stored = typeof window !== 'undefined' ? localStorage.getItem('realnest_saved_properties') : null;
+      if (stored) {
+        const ids = JSON.parse(stored);
+        if (Array.isArray(ids)) {
+          setLocalSavedIds(ids);
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  // Hide on auth split screens
+  if (pathname === '/login' || pathname === '/register' || pathname === '/forgot-password') {
     return null;
   }
 
   const isSellerPortal = pathname.startsWith('/seller');
-  const myInquiries = getMyInquiries();
-  const unreadInquiriesCount = myInquiries.filter((i) => i.status === 'new').length;
+  const myInquiries = typeof auth?.getMyInquiries === 'function' ? auth.getMyInquiries() : [];
+  const unreadInquiriesCount = Array.isArray(myInquiries)
+    ? myInquiries.filter((i: any) => i.status === 'new').length
+    : 0;
+  const safeSavedIds = Array.isArray(auth?.savedPropertyIds) ? auth.savedPropertyIds : localSavedIds;
 
   return (
     <header className="sticky top-0 z-50 w-full bg-white/95 backdrop-blur-md border-b border-slate-100 transition-all">
@@ -86,9 +106,9 @@ export default function Navbar() {
                 title="Saved properties"
               >
                 <Heart className="w-5 h-5" />
-                {savedPropertyIds.length > 0 && (
+                {safeSavedIds.length > 0 && (
                   <span className="absolute -top-1 -right-1 w-4 h-4 bg-rose-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
-                    {savedPropertyIds.length}
+                    {safeSavedIds.length}
                   </span>
                 )}
               </Link>
@@ -115,7 +135,7 @@ export default function Navbar() {
                     )}
                   </div>
                   <span className="text-xs font-bold max-w-[90px] sm:max-w-[120px] truncate text-slate-900">
-                    {user.name.split(' ')[0]}
+                    {(user.name || user.email || 'User').split(' ')[0]}
                   </span>
                   <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
                 </button>
@@ -206,9 +226,9 @@ export default function Navbar() {
                             <Heart className="w-4 h-4 text-slate-500" />
                             Bookmark
                           </span>
-                          {savedPropertyIds.length > 0 && (
+                          {safeSavedIds.length > 0 && (
                             <span className="bg-rose-50 text-rose-600 text-[10px] px-1.5 py-0.5 rounded font-bold">
-                              {savedPropertyIds.length}
+                              {safeSavedIds.length}
                             </span>
                           )}
                         </Link>
