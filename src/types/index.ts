@@ -8,6 +8,9 @@ export interface User {
   role: UserRole;
   avatar?: string;
   createdAt?: string;
+  bookmarkCount?: number;
+  bookmarks?: any[];
+  savedPropertyIds?: string[];
 }
 
 export type PropertyType = 'apartment' | 'house' | 'villa' | 'plot' | 'commercial';

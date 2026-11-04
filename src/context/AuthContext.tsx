@@ -10,6 +10,7 @@ import React, {
 
 import { User, Inquiry } from '@/types';
 import { userService, RegisterUserData } from '@/services/userService';
+import { bookmarkService, BookmarkItem } from '@/services/bookmarkService';
 import { INITIAL_INQUIRIES } from '@/data/mockProperties';
 
 export interface AuthContextType {
@@ -44,8 +45,10 @@ export interface AuthContextType {
   // Client inquiry & saved bookmark states
   inquiries: Inquiry[];
   savedPropertyIds: string[];
+  bookmarks: BookmarkItem[];
+  bookmarkCount: number;
   isPropertySaved: (id: string) => boolean;
-  toggleSaveProperty: (id: string) => void;
+  toggleSaveProperty: (id: string) => Promise<void> | void;
   getMyInquiries: () => Inquiry[];
   updateInquiryStatus: (id: string, status: Inquiry['status'], replyMessage?: string) => void;
   submitInquiry: (inquiryData: any) => { success: boolean; message: string };
@@ -69,6 +72,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const [inquiries, setInquiries] = useState<Inquiry[]>(INITIAL_INQUIRIES);
   const [savedPropertyIds, setSavedPropertyIds] = useState<string[]>([]);
+  const [bookmarks, setBookmarks] = useState<BookmarkItem[]>([]);
+  const [bookmarkCount, setBookmarkCount] = useState<number>(0);
+
+  // Synchronize bookmark state from user or API response
+  const syncBookmarkData = useCallback(
+    (userData?: User | null, rawBookmarks?: any[], rawCount?: number, rawIds?: string[]) => {
+      if (userData && userData.role === 'buyer') {
+        const bList = (rawBookmarks || userData.bookmarks || []) as BookmarkItem[];
+        const ids =
+          rawIds ||
+          userData.savedPropertyIds ||
+          (Array.isArray(bList) ? bList.map((b) => b.propertyId) : []);
+        const count =
+          rawCount !== undefined
+            ? rawCount
+            : userData.bookmarkCount !== undefined
+            ? userData.bookmarkCount
+            : ids.length;
+
+        setSavedPropertyIds(ids);
+        setBookmarks(bList);
+        setBookmarkCount(count);
+
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.setItem('realnest_saved_properties', JSON.stringify(ids));
+          } catch {}
+        }
+      } else if (userData && userData.role !== 'buyer') {
+        setSavedPropertyIds([]);
+        setBookmarks([]);
+        setBookmarkCount(0);
+      }
+    },
+    []
+  );
 
   // Restore client-side saved bookmarks and inquiries on mount
   useEffect(() => {
@@ -77,7 +116,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         const storedSaved = localStorage.getItem('realnest_saved_properties');
         if (storedSaved) {
           const parsed = JSON.parse(storedSaved);
-          if (Array.isArray(parsed)) setSavedPropertyIds(parsed);
+          if (Array.isArray(parsed)) {
+            setSavedPropertyIds(parsed);
+            setBookmarkCount(parsed.length);
+          }
         }
 
         const storedInqs = localStorage.getItem('realnest_custom_inquiries');
@@ -96,19 +138,68 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     [savedPropertyIds]
   );
 
-  const toggleSaveProperty = useCallback((id: string) => {
-    setSavedPropertyIds((prev) => {
-      const next = prev.includes(id) ? prev.filter((pId) => pId !== id) : [...prev, id];
-      if (typeof window !== 'undefined') {
-        try {
-          localStorage.setItem('realnest_saved_properties', JSON.stringify(next));
-        } catch {
-          // ignore
+  // Add / Remove bookmarks using backend API when buyer is logged in
+  const toggleSaveProperty = useCallback(
+    async (id: string) => {
+      if (!id) return;
+
+      if (user && user.role === 'buyer') {
+        const isCurrentlySaved = savedPropertyIds.includes(id);
+
+        // Optimistic UI updates
+        if (isCurrentlySaved) {
+          setSavedPropertyIds((prev) => prev.filter((pId) => pId !== id));
+          setBookmarks((prev) => prev.filter((b) => b.propertyId !== id));
+          setBookmarkCount((prev) => Math.max(0, prev - 1));
+        } else {
+          setSavedPropertyIds((prev) => [...prev, id]);
+          setBookmarkCount((prev) => prev + 1);
         }
+
+        try {
+          if (isCurrentlySaved) {
+            const res = await bookmarkService.removeBookmark(id);
+            if (res && typeof res.bookmarkCount === 'number') {
+              setBookmarkCount(res.bookmarkCount);
+            }
+          } else {
+            const res = await bookmarkService.addBookmark(id);
+            if (res && res.success) {
+              if (res.bookmark) {
+                setBookmarks((prev) => [res.bookmark!, ...prev.filter((b) => b.propertyId !== id)]);
+              }
+              if (typeof res.bookmarkCount === 'number') {
+                setBookmarkCount(res.bookmarkCount);
+              }
+            }
+          }
+        } catch (err) {
+          console.error('Failed to sync bookmark with backend:', err);
+          // Rollback on network / server failure
+          if (isCurrentlySaved) {
+            setSavedPropertyIds((prev) => [...prev, id]);
+            setBookmarkCount((prev) => prev + 1);
+          } else {
+            setSavedPropertyIds((prev) => prev.filter((pId) => pId !== id));
+            setBookmarkCount((prev) => Math.max(0, prev - 1));
+          }
+        }
+      } else {
+        // Fallback for unauthenticated guest
+        setSavedPropertyIds((prev) => {
+          const next = prev.includes(id) ? prev.filter((pId) => pId !== id) : [...prev, id];
+          if (typeof window !== 'undefined') {
+            try {
+              localStorage.setItem('realnest_saved_properties', JSON.stringify(next));
+            } catch {}
+          }
+          setBookmarkCount(next.length);
+          return next;
+        });
       }
-      return next;
-    });
-  }, []);
+    },
+    [user, savedPropertyIds]
+  );
 
   const getMyInquiries = useCallback((): Inquiry[] => {
     if (!user) return inquiries;
@@ -203,6 +294,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     setUser(null);
     setToken(null);
     setRefreshToken(null);
+    setSavedPropertyIds([]);
+    setBookmarks([]);
+    setBookmarkCount(0);
     if (typeof window !== 'undefined') {
       try {
         sessionStorage.removeItem(STORAGE_KEYS.USER);
@@ -223,6 +317,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         setRefreshToken(newRefreshToken);
       }
 
+      if (newUser.role === 'buyer') {
+        syncBookmarkData(newUser);
+      }
+
       if (typeof window !== 'undefined') {
         try {
           sessionStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(newUser));
@@ -235,7 +333,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         }
       }
     },
-    []
+    [syncBookmarkData]
   );
 
   // Fetch verified user from backend /api/users/me
@@ -255,6 +353,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
       if (res && res.success && res.user) {
         setUser(res.user);
+        if (res.user.role === 'buyer') {
+          syncBookmarkData(res.user, res.bookmarks, res.bookmarkCount, res.savedPropertyIds);
+        }
         if (typeof window !== 'undefined') {
           sessionStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(res.user));
         }
@@ -267,7 +368,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       clearAuth();
       return null;
     }
-  }, [clearAuth]);
+  }, [clearAuth, syncBookmarkData]);
 
   // Synchronize state when tokens are refreshed or session expires globally
   useEffect(() => {
@@ -320,7 +421,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
         if (storedUser) {
           try {
-            setUser(JSON.parse(storedUser));
+            const parsed = JSON.parse(storedUser);
+            setUser(parsed);
+            if (parsed.role === 'buyer') {
+              syncBookmarkData(parsed);
+            }
           } catch {
             // ignore JSON parse error
           }
@@ -332,6 +437,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           if (res && res.success && res.user) {
             setUser(res.user);
             sessionStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(res.user));
+            if (res.user.role === 'buyer') {
+              syncBookmarkData(res.user, res.bookmarks, res.bookmarkCount, res.savedPropertyIds);
+            }
           } else {
             // Token expired or invalid
             clearAuth();
@@ -373,7 +481,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     };
 
     initializeAuth();
-  }, [clearAuth]);
+  }, [clearAuth, syncBookmarkData]);
 
   // LOGIN - Call backend login endpoint
   const login = async (
@@ -411,6 +519,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       }
 
       saveUserToStorage(response.user, response.token, response.refreshToken);
+      if (response.user.role === 'buyer') {
+        syncBookmarkData(
+          response.user,
+          response.bookmarks,
+          response.bookmarkCount,
+          response.savedPropertyIds
+        );
+      }
 
       return {
         success: true,
@@ -574,6 +690,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         getMe,
         inquiries,
         savedPropertyIds,
+        bookmarks,
+        bookmarkCount,
         isPropertySaved,
         toggleSaveProperty,
         getMyInquiries,

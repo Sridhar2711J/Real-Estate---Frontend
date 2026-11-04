@@ -9,35 +9,31 @@ export interface BookmarkItem {
   property: Property;
 }
 
-export interface BookmarksResponse {
+export interface BookmarkActionResponse {
   success: boolean;
-  count: number;
-  bookmarks: BookmarkItem[];
+  message: string;
+  bookmark?: BookmarkItem;
+  bookmarkCount: number;
+  propertyId?: string;
+  isBookmarked: boolean;
 }
 
 export const bookmarkService = {
   /**
-   * 1. GET: Fetch all bookmarks for the authenticated buyer
+   * 1. ADD: Add a property to bookmarks (Buyer only)
    */
-  async getBookmarks(): Promise<BookmarksResponse> {
-    return apiClient<BookmarksResponse>('/bookmarks');
-  },
-
-  /**
-   * 2. ADD: Add a property to bookmarks
-   */
-  async addBookmark(propertyId: string): Promise<{ success: boolean; message: string; bookmark: BookmarkItem }> {
-    return apiClient<{ success: boolean; message: string; bookmark: BookmarkItem }>('/bookmarks', {
+  async addBookmark(propertyId: string): Promise<BookmarkActionResponse> {
+    return apiClient<BookmarkActionResponse>('/bookmarks', {
       method: 'POST',
       body: JSON.stringify({ propertyId }),
     });
   },
 
   /**
-   * 3. REMOVE: Remove a bookmark by Bookmark ID or Property ID
+   * 2. REMOVE: Remove a bookmark by Bookmark ID or Property ID (Buyer only)
    */
-  async removeBookmark(idOrPropertyId: string): Promise<{ success: boolean; message: string }> {
-    return apiClient<{ success: boolean; message: string }>(`/bookmarks/${idOrPropertyId}`, {
+  async removeBookmark(idOrPropertyId: string): Promise<BookmarkActionResponse> {
+    return apiClient<BookmarkActionResponse>(`/bookmarks/${idOrPropertyId}`, {
       method: 'DELETE',
     });
   },

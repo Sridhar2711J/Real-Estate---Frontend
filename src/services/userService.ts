@@ -20,6 +20,9 @@ export interface AuthResponse {
   user?: User;
   token?: string;
   refreshToken?: string;
+  bookmarkCount?: number;
+  bookmarks?: any[];
+  savedPropertyIds?: string[];
 }
 
 export type RegisterResponse = AuthResponse;
@@ -28,6 +31,9 @@ export interface GetMeResponse {
   success: boolean;
   user?: User;
   message?: string;
+  bookmarkCount?: number;
+  bookmarks?: any[];
+  savedPropertyIds?: string[];
 }
 
 export interface CommonResponse {

@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 
 export default function BookmarksClient() {
-  const { savedPropertyIds, toggleSaveProperty } = useAuth();
+  const { savedPropertyIds, toggleSaveProperty, bookmarks, bookmarkCount } = useAuth();
   const [properties, setProperties] = useState<Property[]>([]);
   const [selectedType, setSelectedType] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'default' | 'price-asc' | 'price-desc'>('default');
@@ -37,7 +37,14 @@ export default function BookmarksClient() {
     };
   }, []);
 
-  const safeProperties = Array.isArray(properties) ? properties : [];
+  // Combine properties from AuthContext bookmarks and fetched properties
+  const contextProperties = Array.isArray(bookmarks)
+    ? (bookmarks.map((b: any) => b.property).filter(Boolean) as Property[])
+    : [];
+  const propertyMap = new Map<string, Property>();
+  contextProperties.forEach((p) => propertyMap.set(p.id, p));
+  (Array.isArray(properties) ? properties : []).forEach((p) => propertyMap.set(p.id, p));
+  const safeProperties = Array.from(propertyMap.values());
   const safeSavedIds = Array.isArray(savedPropertyIds) ? savedPropertyIds : [];
 
   // Filter properties matching savedPropertyIds
