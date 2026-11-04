@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useAuth } from '@/context/AuthContext';
-import { Inquiry } from '@/types';
+import { propertyService } from '@/services/propertyService';
+import { Inquiry, Property } from '@/types';
 import { formatPrice } from '@/lib/propertyUtils';
 import {
   MessageSquare,
@@ -25,10 +26,29 @@ import {
 } from 'lucide-react';
 
 export default function BuyerInquiriesClient() {
-  const { user, getMyInquiries, properties } = useAuth();
+  const { user, getMyInquiries } = useAuth();
+  const [properties, setProperties] = useState<Property[]>([]);
   const [filterStatus, setFilterStatus] = useState<'all' | 'new' | 'read' | 'replied'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedInquiry, setSelectedInquiry] = useState<Inquiry | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    async function loadProperties() {
+      try {
+        const res = await propertyService.getProperties({ all: true });
+        if (isMounted && res && res.success && Array.isArray(res.properties)) {
+          setProperties(res.properties);
+        }
+      } catch (err) {
+        console.error('Failed to load properties in buyer inquiries:', err);
+      }
+    }
+    loadProperties();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const allInquiries = typeof getMyInquiries === 'function' ? getMyInquiries() : [];
   const safeInquiries = Array.isArray(allInquiries) ? allInquiries : [];

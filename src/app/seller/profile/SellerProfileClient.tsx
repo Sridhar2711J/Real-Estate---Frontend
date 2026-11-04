@@ -4,6 +4,8 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
+import { propertyService } from '@/services/propertyService';
+import { Property } from '@/types';
 import { formatPrice } from '@/lib/propertyUtils';
 import {
   User,
@@ -24,7 +26,8 @@ import {
 } from 'lucide-react';
 
 export default function SellerProfileClient() {
-  const { user, updateUserProfile, uploadAvatar, properties, getMyInquiries } = useAuth();
+  const { user, updateUserProfile, uploadAvatar, getMyInquiries } = useAuth();
+  const [myProperties, setMyProperties] = useState<Property[]>([]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -52,10 +55,23 @@ export default function SellerProfileClient() {
     }
   }, [user]);
 
-  const safeProperties = Array.isArray(properties) ? properties : [];
-  const myProperties = useMemo(() => {
-    return safeProperties.filter((p) => !user || p.ownerId === user.id || user.role === 'seller');
-  }, [safeProperties, user]);
+  useEffect(() => {
+    let isMounted = true;
+    async function loadSellerProperties() {
+      try {
+        const res = await propertyService.getMyProperties();
+        if (isMounted && res && res.success && Array.isArray(res.properties)) {
+          setMyProperties(res.properties);
+        }
+      } catch (err) {
+        console.error('Failed to load seller profile properties:', err);
+      }
+    }
+    loadSellerProperties();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const allInquiries = typeof getMyInquiries === 'function' ? getMyInquiries() : [];
   const totalPortfolioValue = myProperties.reduce((sum, p) => sum + (p.price || 0), 0);

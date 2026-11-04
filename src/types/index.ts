@@ -24,6 +24,7 @@ export interface PropertyImage {
 
 export interface Property {
   id: string;
+  slug?: string;
   title: string;
   description: string;
   features?: string[];
@@ -39,7 +40,8 @@ export interface Property {
   images: PropertyImage[];
   coverImage: string;
 
-  ownerId: string;
+  sellerId?: string;
+  ownerId?: string;
   createdAt: string;
   status?: 'active' | 'inactive' | 'sold';
 }
@@ -64,6 +66,7 @@ export interface Inquiry {
 }
 
 export interface PropertyFilterParams {
+  slug?: string;
   city?: string;
   propertyType?: string;
   listingType?: string;

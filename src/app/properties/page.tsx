@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState, useMemo, useEffect, Suspense } from 'react';
+import React, { useState, useMemo, useEffect, Suspense, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
+import { propertyService } from '@/services/propertyService';
 import PropertyCard from '@/components/property/PropertyCard';
 import { TOP_CITIES } from '@/data/mockProperties';
 import { Property } from '@/types';
@@ -35,7 +36,33 @@ function getPageNumbers(current: number, total: number): (number | string)[] {
 function PropertiesContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { properties, savedPropertyIds } = useAuth();
+  const { savedPropertyIds } = useAuth();
+
+  const [properties, setProperties] = useState<Property[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+
+  // Fetch properties catalog directly from API
+  useEffect(() => {
+    let isMounted = true;
+    async function loadProperties() {
+      setLoading(true);
+      try {
+        const res = await propertyService.getProperties({ all: true });
+        if (isMounted && res && res.success && Array.isArray(res.properties)) {
+          setProperties(res.properties);
+        }
+      } catch (err) {
+        console.error('Failed to load properties catalog:', err);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    }
+
+    loadProperties();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Read URL params
   const initialCity = searchParams.get('city') || '';

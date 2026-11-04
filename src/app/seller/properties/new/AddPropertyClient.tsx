@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
+import { propertyService } from '@/services/propertyService';
 import { PropertyImage } from '@/types';
 import {
   PlusCircle,
@@ -46,7 +47,7 @@ const SUGGESTED_FEATURES = [
 
 export default function AddPropertyClient() {
   const router = useRouter();
-  const { addProperty, user } = useAuth();
+  const { user } = useAuth();
 
   // Form states matching Property interface in src/types/index.ts
   const [title, setTitle] = useState('');
@@ -81,6 +82,27 @@ export default function AddPropertyClient() {
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [uploadingCover, setUploadingCover] = useState(false);
+  const [uploadingGallery, setUploadingGallery] = useState(false);
+
+  const topRef = useRef<HTMLDivElement>(null);
+
+  // Smoothly scroll to the top of the content container & window
+  const scrollToTop = () => {
+    if (topRef.current) {
+      topRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  // Scroll to top whenever an error or success banner is triggered
+  useEffect(() => {
+    if (errorMsg || success) {
+      scrollToTop();
+    }
+  }, [errorMsg, success]);
 
   // Feature actions
   const addFeatureItem = (featName: string) => {
@@ -103,17 +125,43 @@ export default function AddPropertyClient() {
     setFeatures((prev) => prev.filter((f) => f !== feat));
   };
 
-  // Cover image upload via file
-  const handleCoverFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Cover image upload via file - uploads to /uploads/properties/ via propertyService.uploadImage
+  const handleCoverFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === 'string') {
-        setCoverImage(reader.result);
+
+    setErrorMsg('');
+
+    if (!file.type.startsWith('image/')) {
+      setErrorMsg('Please select a valid image file (PNG, JPG, or WebP).');
+      scrollToTop();
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      setErrorMsg('Cover image exceeds the 10MB file size limit.');
+      scrollToTop();
+      return;
+    }
+
+    try {
+      setUploadingCover(true);
+      const res = await propertyService.uploadImage(file);
+      if (res && res.success && res.imageUrl) {
+        setCoverImage(res.imageUrl);
+      } else {
+        setErrorMsg(res?.message || 'Failed to upload cover image.');
+        scrollToTop();
       }
-    };
-    reader.readAsDataURL(file);
+    } catch (err: any) {
+      setErrorMsg(err?.message || 'An error occurred while uploading cover image.');
+      scrollToTop();
+    } finally {
+      setUploadingCover(false);
+      if (coverFileInputRef.current) {
+        coverFileInputRef.current.value = '';
+      }
+    }
   };
 
   const handleApplyCoverUrl = (e?: React.FormEvent) => {
@@ -124,35 +172,54 @@ export default function AddPropertyClient() {
     }
   };
 
-  // Gallery multi-file upload
-  const handleGalleryFilesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Gallery multi-file upload - uploads directly to /uploads/properties/ via propertyService.uploadImage
+  const handleGalleryFilesChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    Array.from(files).forEach((file) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        if (typeof reader.result === 'string') {
-          const defaultCaption = file.name.replace(/\.[^/.]+$/, '');
-          setImages((prev) => {
-            const nextOrder = prev.length + 1;
-            return [
-              ...prev,
-              {
-                id: `img-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-                url: reader.result as string,
-                sortOrder: nextOrder,
-                caption: defaultCaption,
-              },
-            ];
-          });
-        }
-      };
-      reader.readAsDataURL(file);
-    });
+    const fileList = Array.from(files);
+    setUploadingGallery(true);
+    setErrorMsg('');
 
-    if (galleryFileInputRef.current) {
-      galleryFileInputRef.current.value = '';
+    try {
+      for (const file of fileList) {
+        if (!file.type.startsWith('image/')) {
+          setErrorMsg(`"${file.name}" is not a valid image file.`);
+          scrollToTop();
+          continue;
+        }
+
+        if (file.size > 10 * 1024 * 1024) {
+          setErrorMsg(`"${file.name}" exceeds the 10MB file size limit.`);
+          scrollToTop();
+          continue;
+        }
+
+        const res = await propertyService.uploadImage(file);
+        if (res && res.success && res.imageUrl) {
+          const defaultCaption = file.name.replace(/\.[^/.]+$/, '');
+          setImages((prev) => [
+            ...prev,
+            {
+              id: `img-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+              url: res.imageUrl,
+              sortOrder: prev.length + 1,
+              caption: defaultCaption,
+            },
+          ]);
+        } else {
+          setErrorMsg(res?.message || `Failed to upload image "${file.name}".`);
+          scrollToTop();
+        }
+      }
+    } catch (err: any) {
+      setErrorMsg(err?.message || 'An error occurred while uploading gallery images.');
+      scrollToTop();
+    } finally {
+      setUploadingGallery(false);
+      if (galleryFileInputRef.current) {
+        galleryFileInputRef.current.value = '';
+      }
     }
   };
 
@@ -221,48 +288,58 @@ export default function AddPropertyClient() {
   };
 
   // Submit Handler
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
 
     if (!title.trim()) {
       setErrorMsg('Title is required (*).');
+      scrollToTop();
       return;
     }
     if (!propertyType) {
       setErrorMsg('Property Type is required (*).');
+      scrollToTop();
       return;
     }
     if (!city.trim()) {
       setErrorMsg('City is required (*).');
+      scrollToTop();
       return;
     }
     if (!location.trim()) {
       setErrorMsg('Location is required (*).');
+      scrollToTop();
       return;
     }
     if (!price || Number(price) <= 0) {
       setErrorMsg('Price is required (*). Please enter a valid amount.');
+      scrollToTop();
       return;
     }
     if (!area || Number(area) <= 0) {
       setErrorMsg('Area is required (*). Please enter square footage.');
+      scrollToTop();
       return;
     }
     if (!bedrooms || Number(bedrooms) < 0) {
       setErrorMsg('Bedrooms is required (*).');
+      scrollToTop();
       return;
     }
     if (!bathrooms || Number(bathrooms) < 0) {
       setErrorMsg('Bathrooms is required (*).');
+      scrollToTop();
       return;
     }
     if (!description.trim()) {
       setErrorMsg('Detailed Description is required (*).');
+      scrollToTop();
       return;
     }
     if (!coverImage.trim()) {
       setErrorMsg('Cover Image is required (*). Please upload or enter an image URL.');
+      scrollToTop();
       return;
     }
 
@@ -283,8 +360,8 @@ export default function AddPropertyClient() {
             },
           ];
 
-    setTimeout(() => {
-      addProperty({
+    try {
+      const res = await propertyService.createProperty({
         title: title.trim(),
         propertyType,
         status,
@@ -299,20 +376,28 @@ export default function AddPropertyClient() {
         features: features,
         coverImage: coverImage.trim(),
         images: finalImages,
-        ownerId: user?.id || 'user-madhu-001',
       });
 
+      if (res && res.success) {
+        setSuccess(true);
+        scrollToTop();
+        setTimeout(() => {
+          router.push('/seller/properties');
+        }, 800);
+      } else {
+        setErrorMsg(res?.message || 'Failed to create property listing.');
+        scrollToTop();
+      }
+    } catch (err: any) {
+      setErrorMsg(err?.message || 'An error occurred while creating the property.');
+      scrollToTop();
+    } finally {
       setSubmitting(false);
-      setSuccess(true);
-
-      setTimeout(() => {
-        router.push('/seller/properties');
-      }, 700);
-    }, 400);
+    }
   };
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto pb-12">
+    <div ref={topRef} className="space-y-6 max-w-5xl mx-auto pb-12">
       {/* Header Card */}
       <div className="bg-white rounded-lg p-6 sm:p-8 border border-slate-200/80 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -338,9 +423,19 @@ export default function AddPropertyClient() {
       </div>
 
       {errorMsg && (
-        <div className="p-4 rounded-md bg-rose-50 border border-rose-200 text-rose-800 text-sm font-semibold flex items-center gap-2 animate-in fade-in">
-          <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
-          <span>{errorMsg}</span>
+        <div className="p-4 rounded-md bg-rose-50 border border-rose-200 text-rose-800 text-sm font-semibold flex items-center justify-between gap-2 animate-in fade-in">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
+            <span>{errorMsg}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setErrorMsg('')}
+            className="text-rose-500 hover:text-rose-800 cursor-pointer p-0.5 rounded"
+            title="Dismiss error"
+          >
+            <X className="w-4 h-4" />
+          </button>
         </div>
       )}
 
@@ -508,8 +603,6 @@ export default function AddPropertyClient() {
                 name="price"
                 type="number"
                 required
-                min="10000"
-                step="1000"
                 value={price}
                 onChange={(e) => setPrice(e.target.value)}
                 placeholder="e.g. 15000000"
@@ -739,17 +832,25 @@ export default function AddPropertyClient() {
 
           {coverInputMode === 'upload' ? (
             <div
-              onClick={() => coverFileInputRef.current?.click()}
-              className="border-2 border-dashed border-slate-300 hover:border-[#e76f51] bg-slate-50 hover:bg-orange-50/20 rounded-lg p-6 flex flex-col items-center justify-center text-center cursor-pointer transition-colors"
+              onClick={() => !uploadingCover && coverFileInputRef.current?.click()}
+              className={`border-2 border-dashed border-slate-300 hover:border-[#e76f51] bg-slate-50 hover:bg-orange-50/20 rounded-lg p-6 flex flex-col items-center justify-center text-center transition-colors ${
+                uploadingCover ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer'
+              }`}
             >
               <div className="w-12 h-12 rounded-full bg-white shadow-xs flex items-center justify-center text-[#e76f51] mb-2">
-                <Upload className="w-6 h-6" />
+                {uploadingCover ? (
+                  <RefreshCw className="w-6 h-6 animate-spin text-[#e76f51]" />
+                ) : (
+                  <Upload className="w-6 h-6" />
+                )}
               </div>
               <p className="text-xs sm:text-sm font-bold text-slate-800">
-                Click to browse &amp; upload Cover Image
+                {uploadingCover
+                  ? 'Uploading & Optimizing Cover Image...'
+                  : 'Click to browse & upload Cover Image'}
               </p>
               <p className="text-[11px] text-slate-400 mt-1">
-                PNG, JPG, WebP supported. Max resolution recommended: 1920x1080.
+                PNG, JPG, WebP supported (Max 10MB). Automatically saved to uploads/properties as WebP.
               </p>
             </div>
           ) : (
@@ -780,24 +881,32 @@ export default function AddPropertyClient() {
                 alt="Cover Preview"
                 className="w-full h-56 object-cover"
               />
-              <div className="absolute top-2 right-2 flex items-center gap-1.5">
+              {uploadingCover && (
+                <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-white text-xs font-semibold gap-2 z-10 backdrop-blur-2xs">
+                  <RefreshCw className="w-6 h-6 animate-spin text-[#e76f51]" />
+                  <span>Uploading to uploads/properties...</span>
+                </div>
+              )}
+              <div className="absolute top-2 right-2 flex items-center gap-1.5 z-20">
                 <button
                   type="button"
+                  disabled={uploadingCover}
                   onClick={() => coverFileInputRef.current?.click()}
-                  className="px-2.5 py-1 rounded bg-black/70 hover:bg-black text-white text-[11px] font-semibold backdrop-blur-xs transition-colors cursor-pointer"
+                  className="px-2.5 py-1 rounded bg-black/70 hover:bg-black text-white text-[11px] font-semibold backdrop-blur-xs transition-colors cursor-pointer disabled:opacity-50"
                 >
                   Change
                 </button>
                 <button
                   type="button"
+                  disabled={uploadingCover}
                   onClick={() => setCoverImage('')}
-                  className="p-1 rounded bg-rose-600/90 hover:bg-rose-700 text-white transition-colors cursor-pointer"
+                  className="p-1 rounded bg-rose-600/90 hover:bg-rose-700 text-white transition-colors cursor-pointer disabled:opacity-50"
                   title="Remove cover"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
               </div>
-              <div className="absolute bottom-2 left-2 bg-slate-900/80 text-white text-[10px] font-bold px-2 py-0.5 rounded backdrop-blur-xs">
+              <div className="absolute bottom-2 left-2 bg-slate-900/80 text-white text-[10px] font-bold px-2 py-0.5 rounded backdrop-blur-xs z-20">
                 Primary Cover Image
               </div>
             </div>
@@ -834,10 +943,19 @@ export default function AddPropertyClient() {
               />
               <button
                 type="button"
-                onClick={() => galleryFileInputRef.current?.click()}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#e76f51] hover:bg-[#d85e40] text-white text-xs font-bold rounded-md transition-colors cursor-pointer shadow-xs"
+                disabled={uploadingGallery}
+                onClick={() => !uploadingGallery && galleryFileInputRef.current?.click()}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#e76f51] hover:bg-[#d85e40] text-white text-xs font-bold rounded-md transition-colors cursor-pointer shadow-xs disabled:opacity-50"
               >
-                <Upload className="w-3.5 h-3.5" /> Upload Photos
+                {uploadingGallery ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Uploading...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-3.5 h-3.5" /> Upload Photos
+                  </>
+                )}
               </button>
               <button
                 type="button"
@@ -848,6 +966,14 @@ export default function AddPropertyClient() {
               </button>
             </div>
           </div>
+
+          {/* Uploading progress notification */}
+          {uploadingGallery && (
+            <div className="p-3 rounded-md bg-blue-50 border border-blue-200 text-blue-800 text-xs font-semibold flex items-center gap-2 animate-in fade-in">
+              <RefreshCw className="w-4 h-4 text-blue-600 animate-spin shrink-0" />
+              <span>Uploading and optimizing property photos to uploads/properties... Please wait.</span>
+            </div>
+          )}
 
           {/* Add Image by URL Panel */}
           {showUrlAddModal && (

@@ -8,9 +8,9 @@ import React, {
   useCallback,
 } from 'react';
 
-import { User, Property, Inquiry } from '@/types';
+import { User, Inquiry } from '@/types';
 import { userService, RegisterUserData } from '@/services/userService';
-import { INITIAL_PROPERTIES, INITIAL_INQUIRIES } from '@/data/mockProperties';
+import { INITIAL_INQUIRIES } from '@/data/mockProperties';
 
 export interface AuthContextType {
   user: User | null;
@@ -41,16 +41,12 @@ export interface AuthContextType {
   uploadAvatar: (file: File) => Promise<{ success: boolean; message: string; avatarUrl?: string; user?: User }>;
   getMe: () => Promise<User | null>;
 
-  // Properties & Inquiries (Client state)
-  properties: Property[];
+  // Client inquiry & saved bookmark states
   inquiries: Inquiry[];
   savedPropertyIds: string[];
   isPropertySaved: (id: string) => boolean;
   toggleSaveProperty: (id: string) => void;
   getMyInquiries: () => Inquiry[];
-  addProperty: (property: any) => void;
-  updateProperty: (id: string, updated: Partial<Property>) => void;
-  deleteProperty: (id: string) => void;
   updateInquiryStatus: (id: string, status: Inquiry['status'], replyMessage?: string) => void;
   submitInquiry: (inquiryData: any) => { success: boolean; message: string };
 }
@@ -71,11 +67,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [refreshToken, setRefreshToken] = useState<string | null>(null);
   const [isInitialized, setIsInitialized] = useState<boolean>(false);
 
-  const [properties, setProperties] = useState<Property[]>(INITIAL_PROPERTIES);
   const [inquiries, setInquiries] = useState<Inquiry[]>(INITIAL_INQUIRIES);
   const [savedPropertyIds, setSavedPropertyIds] = useState<string[]>([]);
 
-  // Restore client-side saved bookmarks and properties on mount
+  // Restore client-side saved bookmarks and inquiries on mount
   useEffect(() => {
     if (typeof window !== 'undefined') {
       try {
@@ -83,12 +78,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         if (storedSaved) {
           const parsed = JSON.parse(storedSaved);
           if (Array.isArray(parsed)) setSavedPropertyIds(parsed);
-        }
-
-        const storedProps = localStorage.getItem('realnest_custom_properties');
-        if (storedProps) {
-          const parsed = JSON.parse(storedProps);
-          if (Array.isArray(parsed) && parsed.length > 0) setProperties(parsed);
         }
 
         const storedInqs = localStorage.getItem('realnest_custom_inquiries');
@@ -133,49 +122,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
     return inquiries;
   }, [user, inquiries]);
-
-  const addProperty = useCallback((newProp: any) => {
-    const generatedId = newProp.id || `prop-${Date.now()}`;
-    const created: Property = {
-      ...newProp,
-      id: generatedId,
-      ownerId: newProp.ownerId || user?.id || 'seller-current',
-      createdAt: newProp.createdAt || new Date().toISOString(),
-    };
-    setProperties((prev) => {
-      const updated = [created, ...prev];
-      if (typeof window !== 'undefined') {
-        try {
-          localStorage.setItem('realnest_custom_properties', JSON.stringify(updated));
-        } catch {}
-      }
-      return updated;
-    });
-  }, [user]);
-
-  const updateProperty = useCallback((id: string, updated: Partial<Property>) => {
-    setProperties((prev) => {
-      const next = prev.map((p) => (p.id === id ? { ...p, ...updated } : p));
-      if (typeof window !== 'undefined') {
-        try {
-          localStorage.setItem('realnest_custom_properties', JSON.stringify(next));
-        } catch {}
-      }
-      return next;
-    });
-  }, []);
-
-  const deleteProperty = useCallback((id: string) => {
-    setProperties((prev) => {
-      const next = prev.filter((p) => p.id !== id);
-      if (typeof window !== 'undefined') {
-        try {
-          localStorage.setItem('realnest_custom_properties', JSON.stringify(next));
-        } catch {}
-      }
-      return next;
-    });
-  }, []);
 
   const updateInquiryStatus = useCallback(
     (id: string, status: Inquiry['status'], replyMessage?: string) => {
@@ -626,15 +572,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         updateUserProfile,
         uploadAvatar,
         getMe,
-        properties,
         inquiries,
         savedPropertyIds,
         isPropertySaved,
         toggleSaveProperty,
         getMyInquiries,
-        addProperty,
-        updateProperty,
-        deleteProperty,
         updateInquiryStatus,
         submitInquiry,
       }}

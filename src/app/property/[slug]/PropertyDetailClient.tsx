@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
+import { propertyService } from '@/services/propertyService';
 import { formatPrice, calculateSimilarProperties } from '@/lib/propertyUtils';
 import PropertyCard from '@/components/property/PropertyCard';
 import { Property } from '@/types';
@@ -32,15 +33,49 @@ export default function PropertyDetailClient() {
       : '';
 
   const {
-    properties,
     user,
     isPropertySaved,
     toggleSaveProperty,
     submitInquiry
   } = useAuth();
 
-  const safeProperties = Array.isArray(properties) ? properties : [];
-  const property = safeProperties.find((p) => p.id === slug);
+  const [property, setProperty] = useState<Property | null>(null);
+  const [allProperties, setAllProperties] = useState<Property[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+
+  // Fetch property details directly from API by slug or ID
+  useEffect(() => {
+    let isMounted = true;
+    async function loadPropertyDetails() {
+      setLoading(true);
+      try {
+        const [res, allRes] = await Promise.all([
+          propertyService.getPropertyById(slug),
+          propertyService.getProperties({ all: true, limit: 10 }),
+        ]);
+        if (isMounted) {
+          if (res && res.success && res.property) {
+            setProperty(res.property);
+          }
+          if (allRes && allRes.success && Array.isArray(allRes.properties)) {
+            setAllProperties(allRes.properties);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load property details:', err);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    }
+
+    if (slug) {
+      loadPropertyDetails();
+    }
+
+    return () => {
+      isMounted = false;
+    };
+  }, [slug]);
 
   // Gallery state
   const [activeImageIndex, setActiveImageIndex] = useState(0);
@@ -58,6 +93,14 @@ export default function PropertyDetailClient() {
     type: 'success' | 'error';
     text: string;
   } | null>(null);
+
+  if (loading) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 py-28 text-center">
+        <p className="text-sm font-semibold text-slate-500">Loading property details...</p>
+      </div>
+    );
+  }
 
   if (!property) {
     return (
@@ -77,7 +120,7 @@ export default function PropertyDetailClient() {
   }
 
   const saved = typeof isPropertySaved === 'function' ? isPropertySaved(property.id) : false;
-  const similarProperties = calculateSimilarProperties(property, safeProperties.length ? safeProperties : [property], 3);
+  const similarProperties = calculateSimilarProperties(property, allProperties.length ? allProperties : [property], 3);
   const pricePerSqft = Math.round(property.price / (property.area || 1));
 
   const handleInquirySubmit = (e: React.FormEvent) => {

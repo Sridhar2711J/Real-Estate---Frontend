@@ -1,9 +1,11 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useAuth } from '@/context/AuthContext';
+import { propertyService } from '@/services/propertyService';
+import { Property } from '@/types';
 import { formatPrice } from '@/lib/propertyUtils';
 import {
   Building2,
@@ -20,13 +22,34 @@ import {
 } from 'lucide-react';
 
 export default function SellerPropertiesClient() {
-  const { user, properties, updateProperty, deleteProperty, inquiries } = useAuth();
+  const { user, inquiries } = useAuth();
 
+  const [properties, setProperties] = useState<Property[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState('all');
   const [filterCity, setFilterCity] = useState('all');
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive' | 'sold'>('all');
   const [sortBy, setSortBy] = useState<'newest' | 'price-asc' | 'price-desc' | 'area'>('newest');
+
+  // Load seller's properties directly from API
+  const fetchSellerProperties = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await propertyService.getMyProperties();
+      if (res && res.success && Array.isArray(res.properties)) {
+        setProperties(res.properties);
+      }
+    } catch (err) {
+      console.error('Failed to load seller properties:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchSellerProperties();
+  }, [fetchSellerProperties]);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -40,8 +63,8 @@ export default function SellerPropertiesClient() {
 
   // Relevant properties for the logged-in seller
   const sellerProperties = useMemo(() => {
-    return safeProperties.filter((p) => !user || p.ownerId === user.id || user.role === 'seller');
-  }, [safeProperties, user]);
+    return safeProperties;
+  }, [safeProperties]);
 
   // Available unique cities for filter dropdown
   const uniqueCities = useMemo(() => {
@@ -90,14 +113,27 @@ export default function SellerPropertiesClient() {
     return safeInquiries.filter((inq) => inq.propertyId === propertyId).length;
   };
 
-  // Direct inline status change
-  const handleInlineStatusChange = (propertyId: string, newStatus: 'active' | 'inactive' | 'sold') => {
-    updateProperty(propertyId, { status: newStatus });
+  // Direct inline status change via API
+  const handleInlineStatusChange = async (propertyId: string, newStatus: 'active' | 'inactive' | 'sold') => {
+    try {
+      await propertyService.updateProperty(propertyId, { status: newStatus });
+      setProperties((prev) =>
+        prev.map((p) => (p.id === propertyId ? { ...p, status: newStatus } : p))
+      );
+    } catch (err) {
+      console.error('Failed to update property status:', err);
+    }
   };
 
-  const handleDeleteConfirm = () => {
+  // Delete property via API
+  const handleDeleteConfirm = async () => {
     if (propertyToDelete) {
-      deleteProperty(propertyToDelete.id);
+      try {
+        await propertyService.deleteProperty(propertyToDelete.id);
+        setProperties((prev) => prev.filter((p) => p.id !== propertyToDelete.id));
+      } catch (err) {
+        console.error('Failed to delete property:', err);
+      }
       setPropertyToDelete(null);
     }
   };

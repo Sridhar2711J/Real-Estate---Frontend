@@ -1,8 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
+import { propertyService } from '@/services/propertyService';
+import { Property } from '@/types';
 import PropertyCard from '@/components/property/PropertyCard';
 import {
   Heart,
@@ -12,9 +14,28 @@ import {
 } from 'lucide-react';
 
 export default function BookmarksClient() {
-  const { savedPropertyIds, properties, toggleSaveProperty } = useAuth();
+  const { savedPropertyIds, toggleSaveProperty } = useAuth();
+  const [properties, setProperties] = useState<Property[]>([]);
   const [selectedType, setSelectedType] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'default' | 'price-asc' | 'price-desc'>('default');
+
+  useEffect(() => {
+    let isMounted = true;
+    async function loadProperties() {
+      try {
+        const res = await propertyService.getProperties({ all: true });
+        if (isMounted && res && res.success && Array.isArray(res.properties)) {
+          setProperties(res.properties);
+        }
+      } catch (err) {
+        console.error('Failed to load bookmarks properties:', err);
+      }
+    }
+    loadProperties();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const safeProperties = Array.isArray(properties) ? properties : [];
   const safeSavedIds = Array.isArray(savedPropertyIds) ? savedPropertyIds : [];

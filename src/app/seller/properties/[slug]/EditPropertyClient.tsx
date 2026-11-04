@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter, useParams } from 'next/navigation';
-import { useAuth } from '@/context/AuthContext';
+import { propertyService } from '@/services/propertyService';
+import { Property } from '@/types';
 import {
   Pencil,
   Building2,
@@ -15,6 +16,9 @@ import {
   Trash2,
   AlertTriangle,
   Save,
+  Upload,
+  AlertCircle,
+  X,
 } from 'lucide-react';
 
 const COMMON_FEATURES = [
@@ -43,10 +47,9 @@ export default function EditPropertyClient() {
       ? params.slug[0]
       : '';
 
-  const { properties, updateProperty, deleteProperty } = useAuth();
-
-  // Locate the target property
-  const property = Array.isArray(properties) ? properties.find((p) => p.id === propertyId) : undefined;
+  // Local property state loaded directly from API
+  const [property, setProperty] = useState<Property | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
 
   // Form states
   const [title, setTitle] = useState('');
@@ -65,9 +68,94 @@ export default function EditPropertyClient() {
 
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
+  const [uploadingCover, setUploadingCover] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
 
-  // Populate form when property is found
+  const coverFileInputRef = useRef<HTMLInputElement>(null);
+  const topRef = useRef<HTMLDivElement>(null);
+
+  const scrollToTop = () => {
+    if (topRef.current) {
+      topRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  useEffect(() => {
+    if (errorMsg || success) {
+      scrollToTop();
+    }
+  }, [errorMsg, success]);
+
+  // Handle Cover Photo Upload to uploads/properties via propertyService.uploadImage
+  const handleCoverFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setErrorMsg('');
+
+    if (!file.type.startsWith('image/')) {
+      setErrorMsg('Please select a valid image file (PNG, JPG, or WebP).');
+      scrollToTop();
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      setErrorMsg('Cover image exceeds the 10MB file size limit.');
+      scrollToTop();
+      return;
+    }
+
+    try {
+      setUploadingCover(true);
+      const res = await propertyService.uploadImage(file);
+      if (res && res.success && res.imageUrl) {
+        setCoverImage(res.imageUrl);
+      } else {
+        setErrorMsg(res?.message || 'Failed to upload cover image.');
+        scrollToTop();
+      }
+    } catch (err: any) {
+      setErrorMsg(err?.message || 'An error occurred while uploading cover image.');
+      scrollToTop();
+    } finally {
+      setUploadingCover(false);
+      if (coverFileInputRef.current) {
+        coverFileInputRef.current.value = '';
+      }
+    }
+  };
+
+  // Fetch property directly from API
+  useEffect(() => {
+    let isMounted = true;
+    async function loadProperty() {
+      setLoading(true);
+      try {
+        const res = await propertyService.getPropertyById(propertyId);
+        if (isMounted && res && res.success && res.property) {
+          setProperty(res.property);
+        }
+      } catch (err) {
+        console.error('Failed to load property for editing:', err);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    }
+
+    if (propertyId) {
+      loadProperty();
+    }
+
+    return () => {
+      isMounted = false;
+    };
+  }, [propertyId]);
+
+  // Populate form when property is loaded
   useEffect(() => {
     if (property) {
       setTitle(property.title || '');
@@ -99,14 +187,15 @@ export default function EditPropertyClient() {
     );
   };
 
-  const handleUpdate = (e: React.FormEvent) => {
+  const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!property) return;
 
+    setErrorMsg('');
     setSaving(true);
 
-    setTimeout(() => {
-      updateProperty(property.id, {
+    try {
+      const res = await propertyService.updateProperty(property.id, {
         title,
         status,
         propertyType,
@@ -122,20 +211,43 @@ export default function EditPropertyClient() {
         features: selectedFeatures,
       });
 
+      if (res && res.success) {
+        setSuccess(true);
+        scrollToTop();
+        setTimeout(() => {
+          router.push('/seller/properties');
+        }, 900);
+      } else {
+        setErrorMsg(res?.message || 'Failed to update property listing.');
+        scrollToTop();
+      }
+    } catch (err: any) {
+      console.error('Failed to update property:', err);
+      setErrorMsg(err?.message || 'Failed to update property.');
+      scrollToTop();
+    } finally {
       setSaving(false);
-      setSuccess(true);
-
-      setTimeout(() => {
-        router.push('/seller/properties');
-      }, 900);
-    }, 400);
+    }
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!property) return;
-    deleteProperty(property.id);
-    router.push('/seller/properties');
+    try {
+      await propertyService.deleteProperty(property.id);
+      router.push('/seller/properties');
+    } catch (err) {
+      console.error('Failed to delete property:', err);
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="bg-white rounded-lg p-12 border border-slate-200/80 shadow-xs text-center space-y-3">
+        <RefreshCw className="w-6 h-6 animate-spin text-[#e76f51] mx-auto" />
+        <p className="text-sm font-semibold text-slate-600">Loading property details...</p>
+      </div>
+    );
+  }
 
   // Property Not Found state
   if (!property) {
@@ -159,7 +271,7 @@ export default function EditPropertyClient() {
   }
 
   return (
-    <div className="space-y-6">
+    <div ref={topRef} className="space-y-6">
       {/* Header Card */}
       <div className="bg-white rounded-lg p-6 sm:p-8 border border-slate-200/80 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -205,6 +317,23 @@ export default function EditPropertyClient() {
           </Link>
         </div>
       </div>
+
+      {errorMsg && (
+        <div className="p-4 rounded-md bg-rose-50 border border-rose-200 text-rose-800 text-sm font-semibold flex items-center justify-between gap-2 animate-in fade-in">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
+            <span>{errorMsg}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setErrorMsg('')}
+            className="text-rose-500 hover:text-rose-800 cursor-pointer p-0.5 rounded"
+            title="Dismiss error"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {/* Success Notification Banner */}
       {success && (
@@ -395,22 +524,53 @@ export default function EditPropertyClient() {
 
         {/* Section 3: Media & Photos */}
         <div className="space-y-4 pt-4 border-t border-slate-100">
-          <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400">
-            3. Property Photo &amp; Cover Image
-          </h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400">
+              3. Property Photo &amp; Cover Image
+            </h3>
+
+            {/* Hidden File Input */}
+            <input
+              type="file"
+              ref={coverFileInputRef}
+              accept="image/*"
+              onChange={handleCoverFileChange}
+              className="hidden"
+            />
+
+            <button
+              type="button"
+              disabled={uploadingCover}
+              onClick={() => coverFileInputRef.current?.click()}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#e76f51] hover:bg-[#d85e40] text-white text-xs font-bold rounded-md transition-colors cursor-pointer shadow-xs disabled:opacity-50"
+            >
+              {uploadingCover ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Uploading...
+                </>
+              ) : (
+                <>
+                  <Upload className="w-3.5 h-3.5" /> Upload from Computer
+                </>
+              )}
+            </button>
+          </div>
 
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1.5">
-              Cover Image URL <span className="text-red-500">*</span>
+              Cover Image URL / Path <span className="text-red-500">*</span>
             </label>
             <input
-              type="url"
+              type="text"
               required
               value={coverImage}
               onChange={(e) => setCoverImage(e.target.value)}
-              placeholder="https://images.unsplash.com/..."
-              className="w-full h-10 px-3.5 text-sm font-medium rounded-md border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#e76f51] focus:ring-2 focus:ring-[#e76f51]/20 transition-all"
+              placeholder="https://... or uploaded image path (/uploads/properties/...)"
+              className="w-full h-10 px-3.5 text-sm font-medium rounded-md border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#e76f51] focus:ring-2 focus:ring-[#e76f51]/20 transition-all font-mono"
             />
+            <p className="text-[11px] text-slate-400 mt-1">
+              Supports uploading photos directly to uploads/properties as WebP, or entering an external image URL.
+            </p>
           </div>
 
           {/* Live Preview */}
@@ -422,6 +582,12 @@ export default function EditPropertyClient() {
                 fill
                 className="object-cover"
               />
+              {uploadingCover && (
+                <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-white text-xs font-semibold gap-2 z-10">
+                  <RefreshCw className="w-5 h-5 animate-spin text-[#e76f51]" />
+                  <span>Uploading to uploads/properties...</span>
+                </div>
+              )}
               <span className="absolute bottom-2 left-2 px-2 py-0.5 rounded text-[10px] font-bold bg-black/60 text-white backdrop-blur-md">
                 Live Photo Preview
               </span>

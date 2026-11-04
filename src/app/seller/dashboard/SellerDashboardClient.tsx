@@ -1,9 +1,11 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useAuth } from '@/context/AuthContext';
+import { propertyService } from '@/services/propertyService';
+import { Property } from '@/types';
 import { formatPrice } from '@/lib/propertyUtils';
 import {
   LayoutDashboard,
@@ -17,19 +19,40 @@ import {
 } from 'lucide-react';
 
 export default function SellerDashboardClient() {
-  const { user, properties, getMyInquiries } = useAuth();
+  const { user, getMyInquiries } = useAuth();
 
-  const safeProperties = Array.isArray(properties) ? properties : [];
+  const [myProperties, setMyProperties] = useState<Property[]>([]);
+  const [stats, setStats] = useState<{ total: number; active: number; sold: number; inactive: number }>({
+    total: 0,
+    active: 0,
+    sold: 0,
+    inactive: 0,
+  });
 
-  const myProperties = useMemo(() => {
-    return safeProperties.filter((p) => !user || p.ownerId === user.id || user.role === 'seller');
-  }, [safeProperties, user]);
+  useEffect(() => {
+    let isMounted = true;
+    async function loadDashboardProperties() {
+      try {
+        const res = await propertyService.getMyProperties();
+        if (isMounted && res && res.success) {
+          if (Array.isArray(res.properties)) setMyProperties(res.properties);
+          if (res.stats) setStats(res.stats);
+        }
+      } catch (err) {
+        console.error('Failed to load seller dashboard properties:', err);
+      }
+    }
+    loadDashboardProperties();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const allInquiries = typeof getMyInquiries === 'function' ? getMyInquiries() : [];
   const unreadInquiries = Array.isArray(allInquiries)
     ? allInquiries.filter((inq) => inq.status === 'new').length
     : 0;
-  const soldPropertiesCount = myProperties.filter((p) => p.status === 'sold').length;
+  const soldPropertiesCount = stats.sold || myProperties.filter((p) => p.status === 'sold').length;
 
   return (
     <div className="space-y-6">
