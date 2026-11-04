@@ -18,6 +18,18 @@ export interface SinglePropertyResponse {
   message?: string;
 }
 
+export interface SellerPropertiesParams {
+  page?: number;
+  limit?: number;
+  searchQuery?: string;
+  search?: string;
+  status?: string;
+  propertyType?: string;
+  city?: string;
+  sort?: string;
+  slug?: string;
+}
+
 export interface SellerPropertiesResponse {
   success: boolean;
   stats?: {
@@ -26,14 +38,14 @@ export interface SellerPropertiesResponse {
     sold: number;
     inactive: number;
   };
+  cities?: string[];
+  propertyTypes?: string[];
+  total?: number;
+  totalPages?: number;
+  page?: number;
+  limit?: number;
   count: number;
   properties: Property[];
-  message?: string;
-}
-
-export interface PropertyImageUploadResponse {
-  success: boolean;
-  imageUrl: string;
   message?: string;
 }
 
@@ -68,10 +80,26 @@ export const propertyService = {
   },
 
   /**
-   * Get properties owned by the authenticated seller along with dashboard counts
+   * Get properties owned by the authenticated seller along with dashboard counts, filters, and pagination
    */
-  async getMyProperties(): Promise<SellerPropertiesResponse> {
-    return apiClient<SellerPropertiesResponse>('/properties/seller/my-properties', { method: 'GET' });
+  async getMyProperties(params?: SellerPropertiesParams): Promise<SellerPropertiesResponse> {
+    const query = new URLSearchParams();
+
+    if (params) {
+      if (params.page) query.set('page', String(params.page));
+      if (params.limit) query.set('limit', String(params.limit));
+      if (params.searchQuery) query.set('searchQuery', params.searchQuery);
+      if (params.search) query.set('search', params.search);
+      if (params.status && params.status !== 'all') query.set('status', params.status);
+      if (params.propertyType && params.propertyType !== 'all') query.set('propertyType', params.propertyType);
+      if (params.city && params.city !== 'all') query.set('city', params.city);
+      if (params.sort) query.set('sort', params.sort);
+      if (params.slug) query.set('slug', params.slug);
+    }
+
+    const queryString = query.toString();
+    const endpoint = queryString ? `/properties/seller/my-properties?${queryString}` : '/properties/seller/my-properties';
+    return apiClient<SellerPropertiesResponse>(endpoint, { method: 'GET' });
   },
 
   /**
@@ -91,20 +119,22 @@ export const propertyService = {
   /**
    * Create a new property listing (Seller only)
    */
-  async createProperty(data: Partial<Property>): Promise<SinglePropertyResponse> {
+  async createProperty(data: Partial<Property> | FormData): Promise<SinglePropertyResponse> {
+    const isFormData = typeof FormData !== 'undefined' && data instanceof FormData;
     return apiClient<SinglePropertyResponse>('/properties', {
       method: 'POST',
-      body: JSON.stringify(data),
+      body: isFormData ? data : JSON.stringify(data),
     });
   },
 
   /**
    * Update an existing property listing (Owner Seller only)
    */
-  async updateProperty(id: string, data: Partial<Property>): Promise<SinglePropertyResponse> {
+  async updateProperty(id: string, data: Partial<Property> | FormData): Promise<SinglePropertyResponse> {
+    const isFormData = typeof FormData !== 'undefined' && data instanceof FormData;
     return apiClient<SinglePropertyResponse>(`/properties/${id}`, {
       method: 'PUT',
-      body: JSON.stringify(data),
+      body: isFormData ? data : JSON.stringify(data),
     });
   },
 
@@ -114,19 +144,6 @@ export const propertyService = {
   async deleteProperty(id: string): Promise<{ success: boolean; message: string }> {
     return apiClient<{ success: boolean; message: string }>(`/properties/${id}`, {
       method: 'DELETE',
-    });
-  },
-
-  /**
-   * Upload property photo as WebP
-   */
-  async uploadImage(file: File): Promise<PropertyImageUploadResponse> {
-    const formData = new FormData();
-    formData.append('image', file);
-
-    return apiClient<PropertyImageUploadResponse>('/properties/upload-image', {
-      method: 'POST',
-      body: formData,
     });
   },
 };

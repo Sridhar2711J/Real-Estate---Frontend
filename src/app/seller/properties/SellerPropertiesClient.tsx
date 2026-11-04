@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useAuth } from '@/context/AuthContext';
@@ -19,118 +19,133 @@ import {
   RotateCcw,
   MapPin,
   AlertTriangle,
+  RefreshCw,
 } from 'lucide-react';
 
 export default function SellerPropertiesClient() {
-  const { user, inquiries } = useAuth();
+  const { inquiries } = useAuth();
 
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+
+  // Filters state
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [filterType, setFilterType] = useState('all');
   const [filterCity, setFilterCity] = useState('all');
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive' | 'sold'>('all');
   const [sortBy, setSortBy] = useState<'newest' | 'price-asc' | 'price-desc' | 'area'>('newest');
 
-  // Load seller's properties directly from API
+  // Server-side Pagination & Stats state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(5);
+  const [totalItems, setTotalItems] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [stats, setStats] = useState({
+    total: 0,
+    active: 0,
+    sold: 0,
+    inactive: 0,
+  });
+  const [cities, setCities] = useState<string[]>([]);
+  const [propertyTypes, setPropertyTypes] = useState<string[]>([]);
+
+  // Delete modal state
+  const [propertyToDelete, setPropertyToDelete] = useState<{ id: string; slug?: string; title: string } | null>(null);
+
+  // Debounce search input by 300ms
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [searchQuery]);
+
+  // Reset to page 1 whenever search query updates
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [debouncedSearch]);
+
+  // Load seller's properties via GET API with server-side filters & pagination
   const fetchSellerProperties = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await propertyService.getMyProperties();
-      if (res && res.success && Array.isArray(res.properties)) {
-        setProperties(res.properties);
+      const res = await propertyService.getMyProperties({
+        page: currentPage,
+        limit: pageSize,
+        searchQuery: debouncedSearch.trim() || undefined,
+        status: filterStatus !== 'all' ? filterStatus : undefined,
+        propertyType: filterType !== 'all' ? filterType : undefined,
+        city: filterCity !== 'all' ? filterCity : undefined,
+        sort: sortBy,
+      });
+
+      if (res && res.success) {
+        setProperties(Array.isArray(res.properties) ? res.properties : []);
+        if (res.stats) {
+          setStats(res.stats);
+        }
+        if (Array.isArray(res.cities)) {
+          setCities(res.cities);
+        }
+        if (Array.isArray(res.propertyTypes)) {
+          setPropertyTypes(res.propertyTypes);
+        }
+        setTotalItems(typeof res.total === 'number' ? res.total : (res.properties?.length || 0));
+        setTotalPages(typeof res.totalPages === 'number' ? res.totalPages : 1);
       }
     } catch (err) {
       console.error('Failed to load seller properties:', err);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [currentPage, pageSize, debouncedSearch, filterType, filterCity, filterStatus, sortBy]);
 
   useEffect(() => {
     fetchSellerProperties();
   }, [fetchSellerProperties]);
 
-  // Pagination state
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(5);
-
-  // Delete modal state
-  const [propertyToDelete, setPropertyToDelete] = useState<{ id: string; title: string } | null>(null);
-
-  const safeProperties = Array.isArray(properties) ? properties : [];
   const safeInquiries = Array.isArray(inquiries) ? inquiries : [];
-
-  // Relevant properties for the logged-in seller
-  const sellerProperties = useMemo(() => {
-    return safeProperties;
-  }, [safeProperties]);
-
-  // Available unique cities for filter dropdown
-  const uniqueCities = useMemo(() => {
-    const set = new Set<string>();
-    sellerProperties.forEach((p) => {
-      if (p.city) set.add(p.city);
-    });
-    return Array.from(set);
-  }, [sellerProperties]);
-
-  // Filtered and sorted properties
-  const filteredProperties = useMemo(() => {
-    return sellerProperties
-      .filter((p) => {
-        const currentStatus = p.status || 'active';
-        const matchesStatus = filterStatus === 'all' || currentStatus === filterStatus;
-
-        const matchesSearch =
-          p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          p.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          p.city.toLowerCase().includes(searchQuery.toLowerCase());
-
-        const matchesType = filterType === 'all' || p.propertyType.toLowerCase() === filterType.toLowerCase();
-        const matchesCity = filterCity === 'all' || p.city.toLowerCase() === filterCity.toLowerCase();
-
-        return matchesStatus && matchesSearch && matchesType && matchesCity;
-      })
-      .sort((a, b) => {
-        if (sortBy === 'price-asc') return a.price - b.price;
-        if (sortBy === 'price-desc') return b.price - a.price;
-        if (sortBy === 'area') return (b.area || 0) - (a.area || 0);
-        return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
-      });
-  }, [sellerProperties, searchQuery, filterType, filterCity, filterStatus, sortBy]);
-
-  // Pagination math
-  const totalItems = filteredProperties.length;
-  const totalPages = Math.ceil(totalItems / pageSize) || 1;
-  const validCurrentPage = Math.min(currentPage, totalPages);
-  const startIndex = (validCurrentPage - 1) * pageSize;
-  const endIndex = Math.min(startIndex + pageSize, totalItems);
-  const currentProperties = filteredProperties.slice(startIndex, endIndex);
 
   // Count inquiries per property
   const getInquiryCount = (propertyId: string) => {
     return safeInquiries.filter((inq) => inq.propertyId === propertyId).length;
   };
 
-  // Direct inline status change via API
-  const handleInlineStatusChange = async (propertyId: string, newStatus: 'active' | 'inactive' | 'sold') => {
+  // Direct inline status change via API using slug or id
+  const handleInlineStatusChange = async (propertyIdOrSlug: string, newStatus: 'active' | 'inactive' | 'sold') => {
     try {
-      await propertyService.updateProperty(propertyId, { status: newStatus });
+      await propertyService.updateProperty(propertyIdOrSlug, { status: newStatus });
       setProperties((prev) =>
-        prev.map((p) => (p.id === propertyId ? { ...p, status: newStatus } : p))
+        prev.map((p) =>
+          p.id === propertyIdOrSlug || p.slug === propertyIdOrSlug
+            ? { ...p, status: newStatus }
+            : p
+        )
       );
+      // Update local quick stats
+      setStats((prev) => {
+        const target = properties.find((p) => p.id === propertyIdOrSlug || p.slug === propertyIdOrSlug);
+        const oldStatus = target?.status || 'active';
+        if (oldStatus === newStatus) return prev;
+        return {
+          ...prev,
+          [oldStatus]: Math.max(0, (prev[oldStatus as keyof typeof prev] || 1) - 1),
+          [newStatus]: (prev[newStatus as keyof typeof prev] || 0) + 1,
+        };
+      });
     } catch (err) {
       console.error('Failed to update property status:', err);
     }
   };
 
-  // Delete property via API
+  // Delete property via API using slug or id
   const handleDeleteConfirm = async () => {
     if (propertyToDelete) {
       try {
-        await propertyService.deleteProperty(propertyToDelete.id);
-        setProperties((prev) => prev.filter((p) => p.id !== propertyToDelete.id));
+        const idOrSlug = propertyToDelete.slug || propertyToDelete.id;
+        await propertyService.deleteProperty(idOrSlug);
+        await fetchSellerProperties();
       } catch (err) {
         console.error('Failed to delete property:', err);
       }
@@ -140,12 +155,24 @@ export default function SellerPropertiesClient() {
 
   const handleResetFilters = () => {
     setSearchQuery('');
+    setDebouncedSearch('');
     setFilterType('all');
     setFilterCity('all');
     setFilterStatus('all');
     setSortBy('newest');
     setCurrentPage(1);
   };
+
+  const isFiltered = Boolean(
+    searchQuery ||
+    filterType !== 'all' ||
+    filterCity !== 'all' ||
+    filterStatus !== 'all' ||
+    sortBy !== 'newest'
+  );
+
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = Math.min(startIndex + properties.length, totalItems);
 
   return (
     <div className="space-y-6">
@@ -160,7 +187,7 @@ export default function SellerPropertiesClient() {
               My Listed Properties
             </h1>
             <span className="ml-2 px-2.5 py-0.5 rounded-md text-xs font-extrabold bg-[#e76f51]/10 text-[#e76f51]">
-              {sellerProperties.length} Total
+              {stats.total} Total
             </span>
           </div>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
@@ -179,7 +206,7 @@ export default function SellerPropertiesClient() {
 
       {/* Filter and Search Bar */}
       <div className="bg-white rounded-lg p-4 border border-slate-200/80 shadow-xs space-y-3">
-        {/* Status Filter Tabs */}
+        {/* Status Filter Tabs (Server filtered) */}
         <div className="flex items-center gap-2 overflow-x-auto pb-1">
           <span className="text-xs font-bold text-slate-500 shrink-0">Status:</span>
           <div className="flex items-center gap-1.5">
@@ -195,7 +222,7 @@ export default function SellerPropertiesClient() {
                   : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
               }`}
             >
-              All ({sellerProperties.length})
+              All ({stats.total})
             </button>
             <button
               type="button"
@@ -209,7 +236,7 @@ export default function SellerPropertiesClient() {
                   : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
               }`}
             >
-              Active ({sellerProperties.filter((p) => (p.status || 'active') === 'active').length})
+              Active ({stats.active})
             </button>
             <button
               type="button"
@@ -223,7 +250,7 @@ export default function SellerPropertiesClient() {
                   : 'bg-amber-50 text-amber-700 hover:bg-amber-100'
               }`}
             >
-              Inactive ({sellerProperties.filter((p) => p.status === 'inactive').length})
+              Inactive ({stats.inactive})
             </button>
             <button
               type="button"
@@ -237,7 +264,7 @@ export default function SellerPropertiesClient() {
                   : 'bg-rose-50 text-rose-700 hover:bg-rose-100'
               }`}
             >
-              Sold Out ({sellerProperties.filter((p) => p.status === 'sold').length})
+              Sold Out ({stats.sold})
             </button>
           </div>
         </div>
@@ -249,17 +276,14 @@ export default function SellerPropertiesClient() {
             <input
               type="text"
               value={searchQuery}
-              onChange={(e) => {
-                setSearchQuery(e.target.value);
-                setCurrentPage(1);
-              }}
-              placeholder="Search property or locality..."
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search title, locality..."
               className="w-full h-9 pl-8 pr-3 text-xs rounded-md border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#e76f51] focus:ring-2 focus:ring-[#e76f51]/20 font-medium"
             />
             <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
           </div>
 
-          {/* Property Type Dropdown */}
+          {/* Property Type Dropdown (Only available types from backend) */}
           <select
             value={filterType}
             onChange={(e) => {
@@ -267,12 +291,14 @@ export default function SellerPropertiesClient() {
               setCurrentPage(1);
             }}
             aria-label="Filter by property type"
-            className="h-9 px-2.5 text-xs rounded-md border border-slate-300 bg-white text-slate-800 font-medium focus:outline-none focus:border-[#e76f51] cursor-pointer"
+            className="h-9 px-2.5 text-xs rounded-md border border-slate-300 bg-white text-slate-800 font-medium focus:outline-none focus:border-[#e76f51] cursor-pointer capitalize"
           >
             <option value="all">All Property Types</option>
-            <option value="apartment">Apartment</option>
-            <option value="villa">Villa</option>
-            <option value="house">House</option>
+            {propertyTypes.map((type) => (
+              <option key={type} value={type} className="capitalize">
+                {type.charAt(0).toUpperCase() + type.slice(1)}
+              </option>
+            ))}
           </select>
 
           {/* City Dropdown */}
@@ -286,7 +312,7 @@ export default function SellerPropertiesClient() {
             className="h-9 px-2.5 text-xs rounded-md border border-slate-300 bg-white text-slate-800 font-medium focus:outline-none focus:border-[#e76f51] cursor-pointer"
           >
             <option value="all">All Cities</option>
-            {uniqueCities.map((c) => (
+            {cities.map((c) => (
               <option key={c} value={c}>
                 {c}
               </option>
@@ -296,7 +322,10 @@ export default function SellerPropertiesClient() {
           {/* Sort Dropdown */}
           <select
             value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as 'newest' | 'price-asc' | 'price-desc' | 'area')}
+            onChange={(e) => {
+              setSortBy(e.target.value as 'newest' | 'price-asc' | 'price-desc' | 'area');
+              setCurrentPage(1);
+            }}
             aria-label="Sort properties"
             className="h-9 px-2.5 text-xs rounded-md border border-slate-300 bg-white text-slate-800 font-medium focus:outline-none focus:border-[#e76f51] cursor-pointer"
           >
@@ -308,10 +337,10 @@ export default function SellerPropertiesClient() {
         </div>
 
         {/* Reset Filter Button if active */}
-        {(searchQuery || filterType !== 'all' || filterCity !== 'all' || filterStatus !== 'all' || sortBy !== 'newest') && (
+        {isFiltered && (
           <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs text-slate-500">
             <span>
-              Showing <strong className="text-slate-900">{filteredProperties.length}</strong> matching listings
+              Showing <strong className="text-slate-900">{totalItems}</strong> matching listings
             </span>
             <button
               type="button"
@@ -326,7 +355,12 @@ export default function SellerPropertiesClient() {
 
       {/* PROPERTIES TABLE CONTAINER */}
       <div className="bg-white rounded-lg border border-slate-200/80 shadow-xs overflow-hidden">
-        {currentProperties.length === 0 ? (
+        {loading ? (
+          <div className="py-20 text-center space-y-3">
+            <RefreshCw className="w-6 h-6 animate-spin text-[#e76f51] mx-auto" />
+            <p className="text-xs font-bold text-slate-600">Loading listings...</p>
+          </div>
+        ) : properties.length === 0 ? (
           <div className="py-16 text-center space-y-3">
             <div className="w-12 h-12 rounded-full bg-slate-100 text-slate-400 mx-auto flex items-center justify-center">
               <Building2 className="w-6 h-6" />
@@ -350,27 +384,33 @@ export default function SellerPropertiesClient() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-medium">
-                {currentProperties.map((prop) => {
+                {properties.map((prop) => {
+                  const propSlugOrId = prop.slug || prop.id;
                   const inquiryCount = getInquiryCount(prop.id);
                   const currentStatus = prop.status || 'active';
-                  const pricePerSqft = prop.area ? Math.round(prop.price / prop.area) : 0;
 
                   return (
                     <tr key={prop.id} className="hover:bg-slate-50/70 transition-colors group">
-                      {/* Property Cover and Title */}
+                      {/* Property Cover and Title (Slug-based link) */}
                       <td className="py-3.5 px-4">
                         <div className="flex items-center gap-3">
                           <div className="relative w-14 h-14 rounded-md overflow-hidden bg-slate-100 shrink-0 border border-slate-200">
-                            <Image
-                              src={prop.coverImage}
-                              alt={prop.title}
-                              fill
-                              className="object-cover"
-                            />
+                            {prop.coverImage ? (
+                              <Image
+                                src={prop.coverImage}
+                                alt={prop.title}
+                                fill
+                                className="object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-slate-300">
+                                <Building2 className="w-5 h-5" />
+                              </div>
+                            )}
                           </div>
                           <div className="min-w-0 max-w-xs sm:max-w-sm">
                             <Link
-                              href={`/property/${prop.id}`}
+                              href={`/property/${propSlugOrId}`}
                               target="_blank"
                               className="font-bold text-slate-900 hover:text-[#e76f51] transition-colors truncate block text-xs sm:text-sm"
                             >
@@ -402,9 +442,6 @@ export default function SellerPropertiesClient() {
                         <div className="font-extrabold text-slate-900 text-xs sm:text-sm">
                           {formatPrice(prop.price)}
                         </div>
-                        <div className="text-[10px] text-slate-400">
-                          ₹{pricePerSqft.toLocaleString('en-IN')}/sqft
-                        </div>
                       </td>
 
                       {/* Inquiries */}
@@ -421,13 +458,13 @@ export default function SellerPropertiesClient() {
                         </Link>
                       </td>
 
-                      {/* STATUS SELECTOR: ACTIVE, INACTIVE, SOLD OUT */}
+                      {/* STATUS SELECTOR: ACTIVE, INACTIVE, SOLD OUT (Slug-based API) */}
                       <td className="py-3.5 px-3">
                         <select
                           value={currentStatus}
                           onChange={(e) =>
                             handleInlineStatusChange(
-                              prop.id,
+                              propSlugOrId,
                               e.target.value as 'active' | 'inactive' | 'sold'
                             )
                           }
@@ -441,17 +478,17 @@ export default function SellerPropertiesClient() {
                           }`}
                         >
                           <option value="active">● Active (Live)</option>
-                          <option value="inactive">○ Inactive (Draft)</option>
+                          {/* <option value="inactive">○ Inactive (Draft)</option> */}
                           <option value="sold">✕ Sold Out</option>
                         </select>
                       </td>
 
-                      {/* Actions: Edit Link, View, Delete */}
+                      {/* Actions: Edit Link (Slug-based), View (Slug-based), Delete */}
                       <td className="py-3.5 px-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
-                          {/* Dedicated Edit Page Link */}
+                          {/* Dedicated Edit Page Link using slug */}
                           <Link
-                            href={`/seller/properties/${prop.id}`}
+                            href={`/seller/properties/${propSlugOrId}`}
                             className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-white border border-slate-200 text-slate-700 hover:border-[#e76f51] hover:text-[#e76f51] text-xs font-bold transition-all shadow-2xs"
                             title="Edit Listing Details"
                           >
@@ -459,9 +496,9 @@ export default function SellerPropertiesClient() {
                             <span>Edit</span>
                           </Link>
 
-                          {/* View Listing */}
+                          {/* View Listing using slug */}
                           <Link
-                            href={`/property/${prop.id}`}
+                            href={`/property/${propSlugOrId}`}
                             target="_blank"
                             className="p-1.5 rounded-md hover:bg-slate-100 text-slate-500 hover:text-slate-900 transition-colors"
                             title="View Public Page"
@@ -472,7 +509,7 @@ export default function SellerPropertiesClient() {
                           {/* Delete Button */}
                           <button
                             type="button"
-                            onClick={() => setPropertyToDelete({ id: prop.id, title: prop.title })}
+                            onClick={() => setPropertyToDelete({ id: prop.id, slug: prop.slug, title: prop.title })}
                             className="p-1.5 rounded-md hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
                             title="Delete Listing"
                           >
@@ -488,13 +525,13 @@ export default function SellerPropertiesClient() {
           </div>
         )}
 
-        {/* PAGINATION TOOLBAR */}
+        {/* SERVER-SIDE PAGINATION TOOLBAR */}
         {totalItems > 0 && (
           <div className="p-4 border-t border-slate-200 bg-slate-50/50 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-600">
             {/* Showing details and Page Size Selector */}
             <div className="flex items-center gap-3">
               <span>
-                Showing <strong className="text-slate-900">{startIndex + 1}</strong> to{' '}
+                Showing <strong className="text-slate-900">{totalItems > 0 ? startIndex + 1 : 0}</strong> to{' '}
                 <strong className="text-slate-900">{endIndex}</strong> of{' '}
                 <strong className="text-slate-900">{totalItems}</strong> properties
               </span>
@@ -513,6 +550,7 @@ export default function SellerPropertiesClient() {
                   <option value={5}>5</option>
                   <option value={10}>10</option>
                   <option value={20}>20</option>
+                  <option value={50}>50</option>
                 </select>
               </div>
             </div>
@@ -521,7 +559,7 @@ export default function SellerPropertiesClient() {
             <div className="flex items-center gap-1.5">
               <button
                 type="button"
-                disabled={validCurrentPage <= 1}
+                disabled={currentPage <= 1 || loading}
                 onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                 className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-medium transition-colors cursor-pointer"
               >
@@ -534,9 +572,10 @@ export default function SellerPropertiesClient() {
                   <button
                     key={pageNum}
                     type="button"
+                    disabled={loading}
                     onClick={() => setCurrentPage(pageNum)}
                     className={`w-7 h-7 rounded-md text-xs font-bold transition-all cursor-pointer ${
-                      validCurrentPage === pageNum
+                      currentPage === pageNum
                         ? 'bg-[#e76f51] text-white shadow-xs'
                         : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
                     }`}
@@ -548,7 +587,7 @@ export default function SellerPropertiesClient() {
 
               <button
                 type="button"
-                disabled={validCurrentPage >= totalPages}
+                disabled={currentPage >= totalPages || loading}
                 onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                 className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-medium transition-colors cursor-pointer"
               >
@@ -595,4 +634,3 @@ export default function SellerPropertiesClient() {
     </div>
   );
 }
-

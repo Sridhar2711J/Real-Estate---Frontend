@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { propertyService } from '@/services/propertyService';
-import { PropertyImage } from '@/types';
 import {
   PlusCircle,
   Building2,
@@ -13,17 +12,15 @@ import {
   CheckCircle2,
   ArrowLeft,
   RefreshCw,
-  Sparkles,
   Upload,
   Trash2,
   ArrowUp,
   ArrowDown,
   X,
   Plus,
-  Link as LinkIcon,
-  FileText,
   AlertCircle,
   Check,
+  Sparkles,
 } from 'lucide-react';
 
 const SUGGESTED_FEATURES = [
@@ -66,24 +63,26 @@ export default function AddPropertyClient() {
   const [features, setFeatures] = useState<string[]>([]);
   const [customFeature, setCustomFeature] = useState('');
 
-  // Cover Image - file upload or URL
-  const [coverImage, setCoverImage] = useState('');
-  const [coverInputMode, setCoverInputMode] = useState<'upload' | 'url'>('upload');
-  const [coverUrlInput, setCoverUrlInput] = useState('');
+  interface GalleryItem {
+    id: string;
+    file: File;
+    previewUrl: string;
+    caption: string;
+    sortOrder: number;
+  }
+
+  // Cover Image - file upload only (no URL option)
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [coverPreview, setCoverPreview] = useState('');
   const coverFileInputRef = useRef<HTMLInputElement>(null);
 
-  // Property Images - multiple upload, sort order, captions
-  const [images, setImages] = useState<PropertyImage[]>([]);
-  const [urlImageInput, setUrlImageInput] = useState('');
-  const [urlImageCaption, setUrlImageCaption] = useState('');
-  const [showUrlAddModal, setShowUrlAddModal] = useState(false);
+  // Property Images - file upload only (no URL option), multiple upload, sort order, captions
+  const [images, setImages] = useState<GalleryItem[]>([]);
   const galleryFileInputRef = useRef<HTMLInputElement>(null);
 
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
-  const [uploadingCover, setUploadingCover] = useState(false);
-  const [uploadingGallery, setUploadingGallery] = useState(false);
 
   const topRef = useRef<HTMLDivElement>(null);
 
@@ -125,8 +124,8 @@ export default function AddPropertyClient() {
     setFeatures((prev) => prev.filter((f) => f !== feat));
   };
 
-  // Cover image upload via file - uploads to /uploads/properties/ via propertyService.uploadImage
-  const handleCoverFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Cover image file selection (upload only, no URL)
+  const handleCoverFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -144,103 +143,50 @@ export default function AddPropertyClient() {
       return;
     }
 
-    try {
-      setUploadingCover(true);
-      const res = await propertyService.uploadImage(file);
-      if (res && res.success && res.imageUrl) {
-        setCoverImage(res.imageUrl);
-      } else {
-        setErrorMsg(res?.message || 'Failed to upload cover image.');
-        scrollToTop();
-      }
-    } catch (err: any) {
-      setErrorMsg(err?.message || 'An error occurred while uploading cover image.');
-      scrollToTop();
-    } finally {
-      setUploadingCover(false);
-      if (coverFileInputRef.current) {
-        coverFileInputRef.current.value = '';
-      }
-    }
+    setCoverFile(file);
+    setCoverPreview(URL.createObjectURL(file));
   };
 
-  const handleApplyCoverUrl = (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    if (coverUrlInput.trim()) {
-      setCoverImage(coverUrlInput.trim());
-      setCoverUrlInput('');
-    }
-  };
-
-  // Gallery multi-file upload - uploads directly to /uploads/properties/ via propertyService.uploadImage
-  const handleGalleryFilesChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Gallery multi-file upload (upload only, no URL option)
+  const handleGalleryFilesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    const fileList = Array.from(files);
-    setUploadingGallery(true);
     setErrorMsg('');
+    const newItems: GalleryItem[] = [];
 
-    try {
-      for (const file of fileList) {
-        if (!file.type.startsWith('image/')) {
-          setErrorMsg(`"${file.name}" is not a valid image file.`);
-          scrollToTop();
-          continue;
-        }
-
-        if (file.size > 10 * 1024 * 1024) {
-          setErrorMsg(`"${file.name}" exceeds the 10MB file size limit.`);
-          scrollToTop();
-          continue;
-        }
-
-        const res = await propertyService.uploadImage(file);
-        if (res && res.success && res.imageUrl) {
-          const defaultCaption = file.name.replace(/\.[^/.]+$/, '');
-          setImages((prev) => [
-            ...prev,
-            {
-              id: `img-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-              url: res.imageUrl,
-              sortOrder: prev.length + 1,
-              caption: defaultCaption,
-            },
-          ]);
-        } else {
-          setErrorMsg(res?.message || `Failed to upload image "${file.name}".`);
-          scrollToTop();
-        }
+    Array.from(files).forEach((file, index) => {
+      if (!file.type.startsWith('image/')) {
+        setErrorMsg(`"${file.name}" is not a valid image file.`);
+        scrollToTop();
+        return;
       }
-    } catch (err: any) {
-      setErrorMsg(err?.message || 'An error occurred while uploading gallery images.');
-      scrollToTop();
-    } finally {
-      setUploadingGallery(false);
-      if (galleryFileInputRef.current) {
-        galleryFileInputRef.current.value = '';
+
+      if (file.size > 10 * 1024 * 1024) {
+        setErrorMsg(`"${file.name}" exceeds the 10MB file size limit.`);
+        scrollToTop();
+        return;
       }
+
+      newItems.push({
+        id: `img-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 7)}`,
+        file,
+        previewUrl: URL.createObjectURL(file),
+        caption: file.name.replace(/\.[^/.]+$/, ''),
+        sortOrder: images.length + index + 1,
+      });
+    });
+
+    if (newItems.length > 0) {
+      setImages((prev) => {
+        const combined = [...prev, ...newItems];
+        return combined.map((item, i) => ({ ...item, sortOrder: i + 1 }));
+      });
     }
-  };
 
-  // Gallery URL add
-  const handleAddUrlImage = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!urlImageInput.trim()) return;
-
-    setImages((prev) => [
-      ...prev,
-      {
-        id: `img-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-        url: urlImageInput.trim(),
-        sortOrder: prev.length + 1,
-        caption: urlImageCaption.trim() || undefined,
-      },
-    ]);
-
-    setUrlImageInput('');
-    setUrlImageCaption('');
-    setShowUrlAddModal(false);
+    if (galleryFileInputRef.current) {
+      galleryFileInputRef.current.value = '';
+    }
   };
 
   // Sort: Move Up
@@ -283,8 +229,9 @@ export default function AddPropertyClient() {
   };
 
   // Make gallery image the cover image
-  const handleSetAsCover = (url: string) => {
-    setCoverImage(url);
+  const handleSetAsCover = (item: GalleryItem) => {
+    setCoverFile(item.file);
+    setCoverPreview(item.previewUrl);
   };
 
   // Submit Handler
@@ -312,22 +259,23 @@ export default function AddPropertyClient() {
       scrollToTop();
       return;
     }
-    if (!price || Number(price) <= 0) {
-      setErrorMsg('Price is required (*). Please enter a valid amount.');
+    // Price and Area validation: only check that value is not empty (!empty)
+    if (!price || !String(price).trim()) {
+      setErrorMsg('Price is required (*).');
       scrollToTop();
       return;
     }
-    if (!area || Number(area) <= 0) {
-      setErrorMsg('Area is required (*). Please enter square footage.');
+    if (!area || !String(area).trim()) {
+      setErrorMsg('Area is required (*).');
       scrollToTop();
       return;
     }
-    if (!bedrooms || Number(bedrooms) < 0) {
+    if (!bedrooms || !String(bedrooms).trim()) {
       setErrorMsg('Bedrooms is required (*).');
       scrollToTop();
       return;
     }
-    if (!bathrooms || Number(bathrooms) < 0) {
+    if (!bathrooms || !String(bathrooms).trim()) {
       setErrorMsg('Bathrooms is required (*).');
       scrollToTop();
       return;
@@ -337,46 +285,46 @@ export default function AddPropertyClient() {
       scrollToTop();
       return;
     }
-    if (!coverImage.trim()) {
-      setErrorMsg('Cover Image is required (*). Please upload or enter an image URL.');
+    if (!coverFile) {
+      setErrorMsg('Cover Image is required (*). Please upload an image file.');
       scrollToTop();
       return;
     }
 
     setSubmitting(true);
 
-    const finalImages: PropertyImage[] =
-      images.length > 0
-        ? images.map((img, i) => ({
-            ...img,
-            sortOrder: img.sortOrder ?? i + 1,
-          }))
-        : [
-            {
-              id: `img-${Date.now()}-1`,
-              url: coverImage,
-              sortOrder: 1,
-              caption: 'Front Cover View',
-            },
-          ];
+    const formData = new FormData();
+    formData.append('title', title.trim());
+    formData.append('propertyType', propertyType);
+    formData.append('status', status);
+    formData.append('city', city.trim());
+    formData.append('location', location.trim());
+    if (address.trim()) formData.append('address', address.trim());
+    formData.append('price', String(price).trim());
+    formData.append('area', String(area).trim());
+    formData.append('bedrooms', String(bedrooms).trim());
+    formData.append('bathrooms', String(bathrooms).trim());
+    formData.append('description', description.trim());
+    formData.append('features', JSON.stringify(features));
+
+    formData.append('coverImage', coverFile);
+
+    images.forEach((img) => {
+      formData.append('images', img.file);
+    });
+
+    formData.append(
+      'imagesMetadata',
+      JSON.stringify(
+        images.map((img) => ({
+          caption: img.caption,
+          sortOrder: img.sortOrder,
+        }))
+      )
+    );
 
     try {
-      const res = await propertyService.createProperty({
-        title: title.trim(),
-        propertyType,
-        status,
-        city: city.trim(),
-        location: location.trim(),
-        address: address.trim() || undefined,
-        price: Number(price),
-        area: Number(area),
-        bedrooms: Number(bedrooms),
-        bathrooms: Number(bathrooms),
-        description: description.trim(),
-        features: features,
-        coverImage: coverImage.trim(),
-        images: finalImages,
-      });
+      const res = await propertyService.createProperty(formData);
 
       if (res && res.success) {
         setSuccess(true);
@@ -792,33 +740,13 @@ export default function AddPropertyClient() {
           </div>
         </div>
 
-        {/* Section 6: Cover Image (Upload & URL Option) */}
+        {/* Section 6: Cover Image (Upload Only - No URL Option) */}
         <div className="space-y-4">
           <div className="flex items-center justify-between pb-2 border-b border-slate-100">
             <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
               <ImageIcon className="w-4 h-4 text-[#e76f51]" />
               Cover Image <span className="text-rose-500">*</span>
             </h3>
-            <div className="flex items-center gap-1 p-0.5 bg-slate-100 rounded-md text-xs font-semibold text-slate-600">
-              <button
-                type="button"
-                onClick={() => setCoverInputMode('upload')}
-                className={`px-2.5 py-1 rounded transition-colors cursor-pointer ${
-                  coverInputMode === 'upload' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-900'
-                }`}
-              >
-                Upload File
-              </button>
-              <button
-                type="button"
-                onClick={() => setCoverInputMode('url')}
-                className={`px-2.5 py-1 rounded transition-colors cursor-pointer ${
-                  coverInputMode === 'url' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-900'
-                }`}
-              >
-                Image URL
-              </button>
-            </div>
           </div>
 
           {/* Hidden File Input */}
@@ -830,77 +758,45 @@ export default function AddPropertyClient() {
             className="hidden"
           />
 
-          {coverInputMode === 'upload' ? (
-            <div
-              onClick={() => !uploadingCover && coverFileInputRef.current?.click()}
-              className={`border-2 border-dashed border-slate-300 hover:border-[#e76f51] bg-slate-50 hover:bg-orange-50/20 rounded-lg p-6 flex flex-col items-center justify-center text-center transition-colors ${
-                uploadingCover ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer'
-              }`}
-            >
-              <div className="w-12 h-12 rounded-full bg-white shadow-xs flex items-center justify-center text-[#e76f51] mb-2">
-                {uploadingCover ? (
-                  <RefreshCw className="w-6 h-6 animate-spin text-[#e76f51]" />
-                ) : (
-                  <Upload className="w-6 h-6" />
-                )}
-              </div>
-              <p className="text-xs sm:text-sm font-bold text-slate-800">
-                {uploadingCover
-                  ? 'Uploading & Optimizing Cover Image...'
-                  : 'Click to browse & upload Cover Image'}
-              </p>
-              <p className="text-[11px] text-slate-400 mt-1">
-                PNG, JPG, WebP supported (Max 10MB). Automatically saved to uploads/properties as WebP.
-              </p>
+          <div
+            onClick={() => coverFileInputRef.current?.click()}
+            className="border-2 border-dashed border-slate-300 hover:border-[#e76f51] bg-slate-50 hover:bg-orange-50/20 rounded-lg p-6 flex flex-col items-center justify-center text-center cursor-pointer transition-colors"
+          >
+            <div className="w-12 h-12 rounded-full bg-white shadow-xs flex items-center justify-center text-[#e76f51] mb-2">
+              <Upload className="w-6 h-6" />
             </div>
-          ) : (
-            <div className="flex gap-2">
-              <input
-                type="url"
-                value={coverUrlInput}
-                onChange={(e) => setCoverUrlInput(e.target.value)}
-                placeholder="https://images.unsplash.com/... or any direct image URL"
-                className="flex-1 h-10 px-3.5 text-xs font-mono rounded-md border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#e76f51]"
-              />
-              <button
-                type="button"
-                onClick={handleApplyCoverUrl}
-                className="px-4 h-10 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-md transition-colors cursor-pointer shrink-0"
-              >
-                Apply URL
-              </button>
-            </div>
-          )}
+            <p className="text-xs sm:text-sm font-bold text-slate-800">
+              Click to browse &amp; upload Cover Image
+            </p>
+            <p className="text-[11px] text-slate-400 mt-1">
+              PNG, JPG, WebP supported (Max 10MB). Upload directly from your device.
+            </p>
+          </div>
 
           {/* Cover Image Preview */}
-          {coverImage ? (
+          {coverPreview ? (
             <div className="relative mt-3 rounded-lg overflow-hidden border border-slate-200 bg-slate-100 max-w-md">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={coverImage}
+                src={coverPreview}
                 alt="Cover Preview"
                 className="w-full h-56 object-cover"
               />
-              {uploadingCover && (
-                <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-white text-xs font-semibold gap-2 z-10 backdrop-blur-2xs">
-                  <RefreshCw className="w-6 h-6 animate-spin text-[#e76f51]" />
-                  <span>Uploading to uploads/properties...</span>
-                </div>
-              )}
               <div className="absolute top-2 right-2 flex items-center gap-1.5 z-20">
                 <button
                   type="button"
-                  disabled={uploadingCover}
                   onClick={() => coverFileInputRef.current?.click()}
-                  className="px-2.5 py-1 rounded bg-black/70 hover:bg-black text-white text-[11px] font-semibold backdrop-blur-xs transition-colors cursor-pointer disabled:opacity-50"
+                  className="px-2.5 py-1 rounded bg-black/70 hover:bg-black text-white text-[11px] font-semibold backdrop-blur-xs transition-colors cursor-pointer"
                 >
                   Change
                 </button>
                 <button
                   type="button"
-                  disabled={uploadingCover}
-                  onClick={() => setCoverImage('')}
-                  className="p-1 rounded bg-rose-600/90 hover:bg-rose-700 text-white transition-colors cursor-pointer disabled:opacity-50"
+                  onClick={() => {
+                    setCoverFile(null);
+                    setCoverPreview('');
+                  }}
+                  className="p-1 rounded bg-rose-600/90 hover:bg-rose-700 text-white transition-colors cursor-pointer"
                   title="Remove cover"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
@@ -913,12 +809,12 @@ export default function AddPropertyClient() {
           ) : (
             <div className="p-3 rounded-md bg-amber-50 border border-amber-200 text-amber-800 text-xs font-medium flex items-center gap-2">
               <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-              <span>No cover image selected yet. Please upload or provide a URL before submitting.</span>
+              <span>No cover image selected yet. Please upload an image file before submitting.</span>
             </div>
           )}
         </div>
 
-        {/* Section 7: Property Images (Images) with Multi-Upload & Sort Option */}
+        {/* Section 7: Property Images (Images) with Multi-Upload & Sort Option (No URL Option) */}
         <div className="space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-2 border-b border-slate-100 gap-2">
             <div>
@@ -943,76 +839,13 @@ export default function AddPropertyClient() {
               />
               <button
                 type="button"
-                disabled={uploadingGallery}
-                onClick={() => !uploadingGallery && galleryFileInputRef.current?.click()}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#e76f51] hover:bg-[#d85e40] text-white text-xs font-bold rounded-md transition-colors cursor-pointer shadow-xs disabled:opacity-50"
+                onClick={() => galleryFileInputRef.current?.click()}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#e76f51] hover:bg-[#d85e40] text-white text-xs font-bold rounded-md transition-colors cursor-pointer shadow-xs"
               >
-                {uploadingGallery ? (
-                  <>
-                    <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Uploading...
-                  </>
-                ) : (
-                  <>
-                    <Upload className="w-3.5 h-3.5" /> Upload Photos
-                  </>
-                )}
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowUrlAddModal(!showUrlAddModal)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-md transition-colors cursor-pointer"
-              >
-                <LinkIcon className="w-3.5 h-3.5" /> Add URL
+                <Upload className="w-3.5 h-3.5" /> Upload Photos
               </button>
             </div>
           </div>
-
-          {/* Uploading progress notification */}
-          {uploadingGallery && (
-            <div className="p-3 rounded-md bg-blue-50 border border-blue-200 text-blue-800 text-xs font-semibold flex items-center gap-2 animate-in fade-in">
-              <RefreshCw className="w-4 h-4 text-blue-600 animate-spin shrink-0" />
-              <span>Uploading and optimizing property photos to uploads/properties... Please wait.</span>
-            </div>
-          )}
-
-          {/* Add Image by URL Panel */}
-          {showUrlAddModal && (
-            <div className="p-4 rounded-lg border border-slate-200 bg-slate-50 space-y-3">
-              <div className="flex items-center justify-between">
-                <h4 className="text-xs font-bold text-slate-800">Add Property Image via URL</h4>
-                <button
-                  type="button"
-                  onClick={() => setShowUrlAddModal(false)}
-                  className="text-slate-400 hover:text-slate-600"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <input
-                  type="url"
-                  value={urlImageInput}
-                  onChange={(e) => setUrlImageInput(e.target.value)}
-                  placeholder="Image URL (https://...)"
-                  className="h-9 px-3 text-xs rounded border border-slate-300 bg-white text-slate-900 font-mono"
-                />
-                <input
-                  type="text"
-                  value={urlImageCaption}
-                  onChange={(e) => setUrlImageCaption(e.target.value)}
-                  placeholder="Caption (e.g. Master Bedroom, Balcony View)"
-                  className="h-9 px-3 text-xs rounded border border-slate-300 bg-white text-slate-900 font-medium"
-                />
-              </div>
-              <button
-                type="button"
-                onClick={handleAddUrlImage}
-                className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded transition-colors cursor-pointer"
-              >
-                Add to Gallery
-              </button>
-            </div>
-          )}
 
           {/* Uploaded Gallery List with Sorting Options */}
           {images.length > 0 ? (
@@ -1038,7 +871,7 @@ export default function AddPropertyClient() {
                       <div className="w-16 h-16 rounded-md overflow-hidden bg-slate-100 border border-slate-200 relative shrink-0">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
-                          src={img.url}
+                          src={img.previewUrl}
                           alt={img.caption || `Image ${index + 1}`}
                           className="w-full h-full object-cover"
                         />
@@ -1064,15 +897,15 @@ export default function AddPropertyClient() {
                       {/* Set as Cover */}
                       <button
                         type="button"
-                        onClick={() => handleSetAsCover(img.url)}
+                        onClick={() => handleSetAsCover(img)}
                         title="Make this the Cover Image"
                         className={`px-2.5 py-1.5 rounded text-[11px] font-semibold transition-colors cursor-pointer ${
-                          coverImage === img.url
+                          coverPreview === img.previewUrl
                             ? 'bg-emerald-100 text-emerald-800'
                             : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
                         }`}
                       >
-                        {coverImage === img.url ? 'Is Cover' : 'Set as Cover'}
+                        {coverPreview === img.previewUrl ? 'Is Cover' : 'Set as Cover'}
                       </button>
 
                       {/* Move Up */}
