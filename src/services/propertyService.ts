@@ -8,6 +8,8 @@ export interface PropertyListResponse {
   page?: number;
   totalPages?: number;
   viewMode?: 'seller_own_properties' | 'buyer_public_properties';
+  cities?: string[];
+  propertyTypes?: string[];
   properties: Property[];
   message?: string;
 }
@@ -59,6 +61,7 @@ export const propertyService = {
     const query = new URLSearchParams();
 
     if (params) {
+      if (params.ids) query.set('ids', params.ids);
       if (params.slug) query.set('slug', params.slug);
       if (params.city && params.city !== 'all') query.set('city', params.city);
       if (params.propertyType && params.propertyType !== 'all') query.set('propertyType', params.propertyType);

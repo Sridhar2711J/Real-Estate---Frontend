@@ -1,11 +1,10 @@
 'use client';
 
-import React, { useState, useMemo, useEffect, Suspense, useCallback } from 'react';
+import React, { useState, useEffect, Suspense, useCallback, useMemo, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { propertyService } from '@/services/propertyService';
 import PropertyCard from '@/components/property/PropertyCard';
-import { TOP_CITIES } from '@/data/mockProperties';
 import { Property } from '@/types';
 import {
   Filter,
@@ -15,10 +14,29 @@ import {
   RotateCcw,
   ChevronLeft,
   ChevronRight,
+  RefreshCw,
+  MapPin,
+  Check,
 } from 'lucide-react';
 import Link from 'next/link';
 
 const ITEMS_PER_PAGE = 6;
+
+const POPULAR_CITIES = [
+  'Pune',
+  'Mumbai',
+  'Bangalore',
+  'Hyderabad',
+  'Delhi NCR',
+  'Goa',
+  'Chennai',
+  'Kolkata',
+  'Ahmedabad',
+  'Jaipur',
+  'Surat',
+  'Chandigarh',
+  'Kochi',
+];
 
 function getPageNumbers(current: number, total: number): (number | string)[] {
   if (total <= 7) {
@@ -39,174 +57,211 @@ function PropertiesContent() {
   const { savedPropertyIds } = useAuth();
 
   const [properties, setProperties] = useState<Property[]>([]);
+  const [cities, setCities] = useState<string[]>([]);
+  const [propertyTypes, setPropertyTypes] = useState<string[]>([]);
+  const [totalItems, setTotalItems] = useState<number>(0);
+  const [totalPages, setTotalPages] = useState<number>(1);
   const [loading, setLoading] = useState<boolean>(true);
+  const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
 
-  // Fetch properties catalog directly from API
+  // Extract filter parameters from URL searchParams
+  const city = searchParams.get('city') || '';
+  const listingType = searchParams.get('listingType') || '';
+  const propertyType = searchParams.get('propertyType') || '';
+  const bedrooms = searchParams.get('bedrooms') || '';
+  const minPrice = searchParams.get('minPrice') || '';
+  const maxPrice = searchParams.get('maxPrice') || '';
+  const sort = searchParams.get('sort') || 'newest';
+  const searchQuery = searchParams.get('searchQuery') || '';
+  const savedOnly = searchParams.get('savedOnly') === 'true';
+  const currentPage = Math.max(1, parseInt(searchParams.get('page') || '1', 10) || 1);
+
+  // City searcher & dropdown state
+  const [citySearchInput, setCitySearchInput] = useState(city);
+  const [showCityDropdown, setShowCityDropdown] = useState(false);
+  const cityDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Local state for search & price inputs to allow fluid typing before syncing to URL
+  const [localSearchInput, setLocalSearchInput] = useState(searchQuery);
+  const [localMinPrice, setLocalMinPrice] = useState(minPrice);
+  const [localMaxPrice, setLocalMaxPrice] = useState(maxPrice);
+
+  // Sync city search input when URL changes
+  useEffect(() => {
+    setCitySearchInput(city);
+  }, [city]);
+
+  // Close city dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (cityDropdownRef.current && !cityDropdownRef.current.contains(e.target as Node)) {
+        setShowCityDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Sync local inputs when URL parameters change externally
+  useEffect(() => {
+    setLocalSearchInput(searchQuery);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    setLocalMinPrice(minPrice);
+  }, [minPrice]);
+
+  useEffect(() => {
+    setLocalMaxPrice(maxPrice);
+  }, [maxPrice]);
+
+  // Helper to update search params in the URL
+  const updateUrl = useCallback(
+    (overrides: Record<string, string | number | boolean | null | undefined>, resetPage = true) => {
+      const params = new URLSearchParams(searchParams.toString());
+
+      Object.entries(overrides).forEach(([key, val]) => {
+        if (val !== undefined && val !== null && val !== '' && val !== 'all' && val !== false) {
+          params.set(key, String(val));
+        } else {
+          params.delete(key);
+        }
+      });
+
+      if (resetPage && !('page' in overrides)) {
+        params.delete('page');
+      }
+
+      const queryString = params.toString();
+      router.push(queryString ? `/properties?${queryString}` : '/properties');
+    },
+    [router, searchParams]
+  );
+
+  // Debounce search input to URL (350ms)
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      if (localSearchInput !== searchQuery) {
+        updateUrl({ searchQuery: localSearchInput.trim() || undefined });
+      }
+    }, 350);
+
+    return () => clearTimeout(handler);
+  }, [localSearchInput, searchQuery, updateUrl]);
+
+  // Debounce budget price inputs to URL (400ms)
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      if (localMinPrice !== minPrice || localMaxPrice !== maxPrice) {
+        updateUrl({
+          minPrice: localMinPrice.trim() || undefined,
+          maxPrice: localMaxPrice.trim() || undefined,
+        });
+      }
+    }, 400);
+
+    return () => clearTimeout(handler);
+  }, [localMinPrice, localMaxPrice, minPrice, maxPrice, updateUrl]);
+
+  // Fetch properties from backend based on URL searchParams and pagination
   useEffect(() => {
     let isMounted = true;
-    async function loadProperties() {
+    async function fetchProperties() {
       setLoading(true);
       try {
-        const res = await propertyService.getProperties({ all: true });
-        if (isMounted && res && res.success && Array.isArray(res.properties)) {
-          setProperties(res.properties);
+        const queryParams: any = {
+          all: true, // ensure all public active properties are returned across sellers
+          page: currentPage,
+          limit: ITEMS_PER_PAGE,
+        };
+
+        if (city && city !== 'all') queryParams.city = city;
+        if (propertyType && propertyType !== 'all') queryParams.propertyType = propertyType;
+        if (listingType) queryParams.listingType = listingType;
+        if (bedrooms && bedrooms !== 'all') queryParams.bedrooms = bedrooms;
+        if (minPrice) queryParams.minPrice = Number(minPrice);
+        if (maxPrice) queryParams.maxPrice = Number(maxPrice);
+        if (searchQuery) queryParams.searchQuery = searchQuery;
+        if (sort) queryParams.sort = sort;
+
+        if (savedOnly) {
+          if (Array.isArray(savedPropertyIds) && savedPropertyIds.length > 0) {
+            queryParams.ids = savedPropertyIds.join(',');
+          } else {
+            queryParams.ids = 'none'; // force 0 results
+          }
+        }
+
+        const res = await propertyService.getProperties(queryParams);
+        if (isMounted && res && res.success) {
+          setProperties(Array.isArray(res.properties) ? res.properties : []);
+          setTotalItems(typeof res.total === 'number' ? res.total : (res.properties?.length || 0));
+          setTotalPages(typeof res.totalPages === 'number' ? res.totalPages : 1);
+          if (Array.isArray(res.cities)) {
+            setCities(res.cities);
+          }
+          if (Array.isArray(res.propertyTypes)) {
+            setPropertyTypes(res.propertyTypes);
+          }
         }
       } catch (err) {
-        console.error('Failed to load properties catalog:', err);
+        console.error('Failed to load filtered properties catalog:', err);
       } finally {
         if (isMounted) setLoading(false);
       }
     }
 
-    loadProperties();
+    fetchProperties();
     return () => {
       isMounted = false;
     };
-  }, []);
-
-  // Read URL params
-  const initialCity = searchParams.get('city') || '';
-  const initialListingType = searchParams.get('listingType') || '';
-  const initialPropertyType = searchParams.get('propertyType') || '';
-  const initialBedrooms = searchParams.get('bedrooms') || '';
-  const initialMinPrice = searchParams.get('minPrice') || '';
-  const initialMaxPrice = searchParams.get('maxPrice') || '';
-  const initialSort = searchParams.get('sort') || 'newest';
-  const initialSearchQuery = searchParams.get('searchQuery') || '';
-  const initialSavedOnly = searchParams.get('savedOnly') === 'true';
-  const initialPage = Math.max(1, parseInt(searchParams.get('page') || '1', 10) || 1);
-
-  // State
-  const [city, setCity] = useState(initialCity);
-  const [listingType, setListingType] = useState(initialListingType);
-  const [propertyType, setPropertyType] = useState(initialPropertyType);
-  const [bedrooms, setBedrooms] = useState(initialBedrooms);
-  const [minPrice, setMinPrice] = useState(initialMinPrice);
-  const [maxPrice, setMaxPrice] = useState(initialMaxPrice);
-  const [sort, setSort] = useState(initialSort);
-  const [searchQuery, setSearchQuery] = useState(initialSearchQuery);
-  const [savedOnly, setSavedOnly] = useState(initialSavedOnly);
-  const [currentPage, setCurrentPage] = useState(initialPage);
-  const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
-
-  // Sync page state when URL changes externally
-  useEffect(() => {
-    const pageFromUrl = parseInt(searchParams.get('page') || '1', 10);
-    if (!isNaN(pageFromUrl) && pageFromUrl >= 1) {
-      setCurrentPage(pageFromUrl);
-    } else {
-      setCurrentPage(1);
-    }
-  }, [searchParams]);
-
-  // Sync state to URL
-  const updateUrl = (overrides: Record<string, string>, resetPage = true) => {
-    const params = new URLSearchParams(searchParams.toString());
-    Object.entries(overrides).forEach(([k, v]) => {
-      if (v) params.set(k, v);
-      else params.delete(k);
-    });
-    if (resetPage && !('page' in overrides)) {
-      params.delete('page');
-      setCurrentPage(1);
-    }
-    const query = params.toString();
-    router.push(query ? `/properties?${query}` : '/properties');
-  };
+  }, [
+    city,
+    propertyType,
+    listingType,
+    bedrooms,
+    minPrice,
+    maxPrice,
+    searchQuery,
+    sort,
+    savedOnly,
+    currentPage,
+    savedPropertyIds,
+  ]);
 
   const handlePageChange = (newPage: number) => {
     const targetPage = Math.min(Math.max(1, newPage), totalPages);
-    setCurrentPage(targetPage);
-    const params = new URLSearchParams(searchParams.toString());
-    if (targetPage > 1) {
-      params.set('page', String(targetPage));
-    } else {
-      params.delete('page');
-    }
-    const query = params.toString();
-    router.push(query ? `/properties?${query}` : '/properties');
+    updateUrl({ page: targetPage > 1 ? String(targetPage) : undefined }, false);
     if (typeof window !== 'undefined') {
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
   const handleResetFilters = () => {
-    setCity('');
-    setListingType('');
-    setPropertyType('');
-    setBedrooms('');
-    setMinPrice('');
-    setMaxPrice('');
-    setSort('newest');
-    setSearchQuery('');
-    setSavedOnly(false);
-    setCurrentPage(1);
+    setLocalSearchInput('');
+    setLocalMinPrice('');
+    setLocalMaxPrice('');
+    setCitySearchInput('');
     router.push('/properties');
   };
 
-  // Filter & Sort computation
-  const safeProperties = Array.isArray(properties) ? properties : [];
-  const safeSavedIds = Array.isArray(savedPropertyIds) ? savedPropertyIds : [];
+  // Filtered available cities combining backend unique cities and popular cities
+  const filteredCitiesList = useMemo(() => {
+    const combined = Array.from(
+      new Set([...(cities.length > 0 ? cities : []), ...POPULAR_CITIES])
+    );
+    const q = citySearchInput.trim().toLowerCase();
+    if (!q) return combined;
+    return combined.filter((c) => c.toLowerCase().includes(q));
+  }, [cities, citySearchInput]);
 
-  const filteredProperties = useMemo(() => {
-    return safeProperties.filter((p) => {
-      if (!p) return false;
-
-      if (savedOnly && !safeSavedIds.includes(p.id)) {
-        return false;
-      }
-      if (city && (p.city || '').toLowerCase() !== city.toLowerCase()) {
-        return false;
-      }
-      if (propertyType && p.propertyType !== propertyType) {
-        return false;
-      }
-      if (bedrooms) {
-        const bedNum = parseInt(bedrooms, 10);
-        if (bedNum >= 4) {
-          if ((p.bedrooms || 0) < 4) return false;
-        } else if (p.bedrooms !== bedNum) {
-          return false;
-        }
-      }
-      if (minPrice && (p.price || 0) < Number(minPrice)) {
-        return false;
-      }
-      if (maxPrice && (p.price || 0) > Number(maxPrice)) {
-        return false;
-      }
-      if (searchQuery) {
-        const query = searchQuery.toLowerCase().trim();
-        const matchesTitle = (p.title || '').toLowerCase().includes(query);
-        const matchesLocation = (p.location || '').toLowerCase().includes(query);
-        const matchesCity = (p.city || '').toLowerCase().includes(query);
-        const matchesDesc = (p.description || '').toLowerCase().includes(query);
-        const matchesAddress = (p.address || '').toLowerCase().includes(query);
-        if (!matchesTitle && !matchesLocation && !matchesCity && !matchesDesc && !matchesAddress) {
-          return false;
-        }
-      }
-      return true;
-    }).sort((a, b) => {
-      if (sort === 'price_asc') return (a.price || 0) - (b.price || 0);
-      if (sort === 'price_desc') return (b.price || 0) - (a.price || 0);
-      if (sort === 'area_desc') return (b.area || 0) - (a.area || 0);
-      // Default: newest
-      return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
-    });
-  }, [
-    properties,
-    savedPropertyIds,
-    savedOnly,
-    city,
-    listingType,
-    propertyType,
-    bedrooms,
-    minPrice,
-    maxPrice,
-    searchQuery,
-    sort,
-  ]);
+  // Unique property types from backend (or fallback to defaults if loading)
+  const displayPropertyTypes = useMemo(() => {
+    if (propertyTypes.length > 0) {
+      return propertyTypes;
+    }
+    return ['apartment', 'villa', 'house', 'commercial', 'plot'];
+  }, [propertyTypes]);
 
   const activeFiltersCount = [
     city,
@@ -219,13 +274,8 @@ function PropertiesContent() {
     savedOnly ? 'saved' : '',
   ].filter(Boolean).length;
 
-  const totalPages = Math.max(1, Math.ceil(filteredProperties.length / ITEMS_PER_PAGE));
-  const validCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
-
-  const paginatedProperties = useMemo(() => {
-    const startIndex = (validCurrentPage - 1) * ITEMS_PER_PAGE;
-    return filteredProperties.slice(startIndex, startIndex + ITEMS_PER_PAGE);
-  }, [filteredProperties, validCurrentPage]);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = Math.min(startIndex + properties.length, totalItems);
 
   return (
     <div className="w-full px-4 sm:px-8 lg:px-12 py-8">
@@ -251,9 +301,8 @@ function PropertiesContent() {
               : 'All Verified Residential & Commercial Listings'}
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            Showing {filteredProperties.length > 0 ? (validCurrentPage - 1) * ITEMS_PER_PAGE + 1 : 0}–
-            {Math.min(validCurrentPage * ITEMS_PER_PAGE, filteredProperties.length)} of {filteredProperties.length} verified{' '}
-            {filteredProperties.length === 1 ? 'property' : 'properties'} available with direct contact.
+            Showing {totalItems > 0 ? startIndex + 1 : 0}–{endIndex} of {totalItems} verified{' '}
+            {totalItems === 1 ? 'property' : 'properties'} available with direct contact.
           </p>
         </div>
 
@@ -262,15 +311,25 @@ function PropertiesContent() {
           <div className="relative w-full sm:w-64">
             <input
               type="text"
-              value={searchQuery}
-              onChange={(e) => {
-                setSearchQuery(e.target.value);
-                updateUrl({ searchQuery: e.target.value });
-              }}
+              value={localSearchInput}
+              onChange={(e) => setLocalSearchInput(e.target.value)}
               placeholder="Search by locality, title..."
-              className="w-full h-10 pl-10 pr-3.5 text-sm rounded-md border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#e76f51] focus:ring-2 focus:ring-[#e76f51]/20 transition-all"
+              className="w-full h-10 pl-10 pr-9 text-sm rounded-md border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#e76f51] focus:ring-2 focus:ring-[#e76f51]/20 transition-all"
             />
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            {localSearchInput && (
+              <button
+                type="button"
+                onClick={() => {
+                  setLocalSearchInput('');
+                  updateUrl({ searchQuery: undefined });
+                }}
+                className="p-1 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 absolute right-2.5 top-1/2 -translate-y-1/2 cursor-pointer"
+                title="Clear search"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
 
           <button
@@ -328,10 +387,7 @@ function PropertiesContent() {
                 <button
                   key={item.label}
                   type="button"
-                  onClick={() => {
-                    setListingType(item.value);
-                    updateUrl({ listingType: item.value });
-                  }}
+                  onClick={() => updateUrl({ listingType: item.value })}
                   className={`py-1.5 text-xs font-semibold rounded-md transition-all cursor-pointer ${
                     listingType === item.value
                       ? 'bg-white text-slate-950 shadow-xs'
@@ -344,59 +400,164 @@ function PropertiesContent() {
             </div>
           </div>
 
-          {/* 2. City Filter */}
-          <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
-              City
-            </label>
-            <select
-              value={city}
-              onChange={(e) => {
-                setCity(e.target.value);
-                updateUrl({ city: e.target.value });
-              }}
-              className="w-full h-10 px-3.5 text-sm rounded-md border border-slate-300 bg-white text-slate-800 font-medium focus:outline-none focus:border-[#e76f51] focus:ring-2 focus:ring-[#e76f51]/20 transition-all cursor-pointer"
-            >
-              <option value="">All Cities</option>
-              {TOP_CITIES.map((c) => (
-                <option key={c.name} value={c.name}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
+          {/* 2. City Filter (Searcher & Selected Option Based) */}
+          <div className="relative" ref={cityDropdownRef}>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-500">
+                City
+              </label>
+              {city && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCitySearchInput('');
+                    updateUrl({ city: undefined });
+                  }}
+                  className="text-[11px] text-[#e76f51] hover:underline font-semibold flex items-center gap-0.5 cursor-pointer"
+                >
+                  <X className="w-3 h-3" /> Clear
+                </button>
+              )}
+            </div>
+
+            {/* Selected City Pill */}
+            {city && (
+              <div className="mb-2 p-1.5 px-2.5 rounded-md bg-orange-50 border border-orange-200 text-xs font-bold text-[#e76f51] flex items-center justify-between shadow-2xs">
+                <span className="flex items-center gap-1.5 truncate">
+                  <MapPin className="w-3.5 h-3.5 shrink-0" />
+                  <span className="truncate">{city}</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCitySearchInput('');
+                    updateUrl({ city: undefined });
+                  }}
+                  className="hover:bg-orange-200/60 p-0.5 rounded-full cursor-pointer text-[#e76f51] transition-colors"
+                  title="Remove city filter"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+            )}
+
+            {/* City Search Input */}
+            <div className="relative">
+              <input
+                type="text"
+                value={citySearchInput}
+                onChange={(e) => {
+                  setCitySearchInput(e.target.value);
+                  setShowCityDropdown(true);
+                }}
+                onFocus={() => setShowCityDropdown(true)}
+                placeholder="Search or select city..."
+                className="w-full h-9 pl-8 pr-8 text-xs rounded-md border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#e76f51] focus:ring-2 focus:ring-[#e76f51]/20 font-medium transition-all"
+              />
+              <MapPin className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              {citySearchInput && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCitySearchInput('');
+                    if (city) updateUrl({ city: undefined });
+                  }}
+                  className="p-1 rounded-full text-slate-400 hover:text-slate-600 absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer"
+                  title="Clear input"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+
+            {/* City Autocomplete Dropdown */}
+            {showCityDropdown && (
+              <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-lg shadow-xl z-50 max-h-56 overflow-y-auto">
+                <div className="p-1 border-b border-slate-100 bg-slate-50 flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-slate-400 px-2.5 py-1">
+                  <span>Available Cities</span>
+                  <span>{filteredCitiesList.length}</span>
+                </div>
+
+                {/* Reset to All Cities */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCitySearchInput('');
+                    setShowCityDropdown(false);
+                    updateUrl({ city: undefined });
+                  }}
+                  className={`w-full text-left px-3 py-1.5 text-xs font-semibold hover:bg-slate-50 transition-colors flex items-center justify-between border-b border-slate-50 cursor-pointer ${
+                    !city ? 'text-[#e76f51] bg-orange-50/50' : 'text-slate-700'
+                  }`}
+                >
+                  <span>All Cities (Reset)</span>
+                  {!city && <Check className="w-3 h-3 text-[#e76f51]" />}
+                </button>
+
+                {filteredCitiesList.map((cName) => {
+                  const isSelected = city.toLowerCase() === cName.toLowerCase();
+                  return (
+                    <button
+                      key={cName}
+                      type="button"
+                      onClick={() => {
+                        setCitySearchInput(cName);
+                        setShowCityDropdown(false);
+                        updateUrl({ city: cName });
+                      }}
+                      className={`w-full text-left px-3 py-1.5 text-xs font-medium hover:bg-orange-50/70 transition-colors flex items-center justify-between border-b border-slate-50 last:border-0 cursor-pointer ${
+                        isSelected ? 'bg-orange-50 font-bold text-[#e76f51]' : 'text-slate-800'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 truncate">
+                        <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
+                        <span className="truncate">{cName}</span>
+                      </div>
+                      {isSelected && <Check className="w-3.5 h-3.5 text-[#e76f51] shrink-0" />}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
-          {/* 3. Property Type */}
+          {/* 3. Property Type (Unique Property Types from Backend) */}
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
               Property Type
             </label>
             <div className="space-y-1.5">
-              {[
-                { label: 'All Property Types', value: '' },
-                { label: 'Apartment / Flat', value: 'apartment' },
-                { label: 'Villa', value: 'villa' },
-                { label: 'Independent House', value: 'house' },
-                { label: 'Commercial Space', value: 'commercial' },
-                { label: 'Plot / Land', value: 'plot' },
-              ].map((item) => (
-                <label
-                  key={item.label}
-                  className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer select-none hover:text-slate-950"
-                >
-                  <input
-                    type="radio"
-                    name="propertyType"
-                    checked={propertyType === item.value}
-                    onChange={() => {
-                      setPropertyType(item.value);
-                      updateUrl({ propertyType: item.value });
-                    }}
-                    className="w-3.5 h-3.5 text-[#e76f51] focus:ring-[#e76f51] accent-[#e76f51]"
-                  />
-                  <span>{item.label}</span>
-                </label>
-              ))}
+              <label className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer select-none hover:text-slate-950">
+                <input
+                  type="radio"
+                  name="propertyType"
+                  checked={propertyType === ''}
+                  onChange={() => updateUrl({ propertyType: undefined })}
+                  className="w-3.5 h-3.5 text-[#e76f51] focus:ring-[#e76f51] accent-[#e76f51]"
+                />
+                <span className="font-medium">All Property Types</span>
+              </label>
+
+              {displayPropertyTypes.map((type) => {
+                const formattedName =
+                  type.charAt(0).toUpperCase() + type.slice(1);
+                const isSelected = propertyType.toLowerCase() === type.toLowerCase();
+                return (
+                  <label
+                    key={type}
+                    className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer select-none hover:text-slate-950"
+                  >
+                    <input
+                      type="radio"
+                      name="propertyType"
+                      checked={isSelected}
+                      onChange={() => updateUrl({ propertyType: type })}
+                      className="w-3.5 h-3.5 text-[#e76f51] focus:ring-[#e76f51] accent-[#e76f51]"
+                    />
+                    <span className="capitalize">{formattedName}</span>
+                  </label>
+                );
+              })}
             </div>
           </div>
 
@@ -416,8 +577,7 @@ function PropertiesContent() {
                   key={item.label}
                   type="button"
                   onClick={() => {
-                    const newVal = bedrooms === item.value ? '' : item.value;
-                    setBedrooms(newVal);
+                    const newVal = bedrooms === item.value ? undefined : item.value;
                     updateUrl({ bedrooms: newVal });
                   }}
                   className={`py-1.5 text-xs font-semibold rounded-md border transition-all cursor-pointer ${
@@ -441,21 +601,15 @@ function PropertiesContent() {
               <input
                 type="number"
                 placeholder="Min Price"
-                value={minPrice}
-                onChange={(e) => {
-                  setMinPrice(e.target.value);
-                  updateUrl({ minPrice: e.target.value });
-                }}
+                value={localMinPrice}
+                onChange={(e) => setLocalMinPrice(e.target.value)}
                 className="w-full h-10 px-3.5 text-sm rounded-md border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#e76f51] focus:ring-2 focus:ring-[#e76f51]/20 transition-all"
               />
               <input
                 type="number"
                 placeholder="Max Price"
-                value={maxPrice}
-                onChange={(e) => {
-                  setMaxPrice(e.target.value);
-                  updateUrl({ maxPrice: e.target.value });
-                }}
+                value={localMaxPrice}
+                onChange={(e) => setLocalMaxPrice(e.target.value)}
                 className="w-full h-10 px-3.5 text-sm rounded-md border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#e76f51] focus:ring-2 focus:ring-[#e76f51]/20 transition-all"
               />
             </div>
@@ -467,10 +621,7 @@ function PropertiesContent() {
               <input
                 type="checkbox"
                 checked={savedOnly}
-                onChange={(e) => {
-                  setSavedOnly(e.target.checked);
-                  updateUrl({ savedOnly: e.target.checked ? 'true' : '' });
-                }}
+                onChange={(e) => updateUrl({ savedOnly: e.target.checked ? 'true' : undefined })}
                 className="w-4 h-4 rounded text-[#e76f51] border-slate-300 focus:ring-[#e76f51] accent-[#e76f51]"
               />
               <span>Saved / Bookmarked Only ({savedPropertyIds.length})</span>
@@ -485,11 +636,11 @@ function PropertiesContent() {
             {/* Active Filters count summary */}
             <div className="flex items-center gap-2 text-xs text-slate-600">
               <span className="font-semibold text-slate-900">
-                {filteredProperties.length} Properties Found
+                {totalItems} {totalItems === 1 ? 'Property' : 'Properties'} Found
               </span>
               {totalPages > 1 && (
                 <span className="text-slate-400 font-medium">
-                  • Page {validCurrentPage} of {totalPages}
+                  • Page {currentPage} of {totalPages}
                 </span>
               )}
               {activeFiltersCount > 0 && (
@@ -502,10 +653,7 @@ function PropertiesContent() {
               <span className="text-xs text-slate-500 font-medium">Sort by:</span>
               <select
                 value={sort}
-                onChange={(e) => {
-                  setSort(e.target.value);
-                  updateUrl({ sort: e.target.value });
-                }}
+                onChange={(e) => updateUrl({ sort: e.target.value })}
                 className="h-10 px-3.5 text-sm font-semibold rounded-md border border-slate-300 bg-white text-slate-800 focus:outline-none focus:border-[#e76f51] focus:ring-2 focus:ring-[#e76f51]/20 transition-all cursor-pointer"
               >
                 <option value="newest">Newest First</option>
@@ -516,11 +664,16 @@ function PropertiesContent() {
             </div>
           </div>
 
-          {/* Grid of Results */}
-          {filteredProperties.length > 0 ? (
+          {/* Grid of Results / Loading / Empty */}
+          {loading ? (
+            <div className="bg-white rounded-lg p-24 text-center border border-slate-200/80 shadow-xs space-y-4">
+              <RefreshCw className="w-8 h-8 animate-spin text-[#e76f51] mx-auto" />
+              <p className="text-xs font-bold text-slate-600">Loading verified properties catalog...</p>
+            </div>
+          ) : properties.length > 0 ? (
             <div className="space-y-8">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {paginatedProperties.map((property) => (
+                {properties.map((property) => (
                   <PropertyCard key={property.id} property={property} />
                 ))}
               </div>
@@ -529,19 +682,17 @@ function PropertiesContent() {
               {totalPages > 1 && (
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-6 border-t border-slate-200">
                   <p className="text-xs text-slate-500 font-medium order-2 sm:order-1">
-                    Showing <span className="font-semibold text-slate-900">{(validCurrentPage - 1) * ITEMS_PER_PAGE + 1}</span> to{' '}
-                    <span className="font-semibold text-slate-900">
-                      {Math.min(validCurrentPage * ITEMS_PER_PAGE, filteredProperties.length)}
-                    </span>{' '}
-                    of <span className="font-semibold text-slate-900">{filteredProperties.length}</span> properties
+                    Showing <span className="font-semibold text-slate-900">{startIndex + 1}</span> to{' '}
+                    <span className="font-semibold text-slate-900">{endIndex}</span> of{' '}
+                    <span className="font-semibold text-slate-900">{totalItems}</span> properties
                   </p>
 
                   <div className="flex items-center gap-1.5 order-1 sm:order-2">
                     {/* Previous Button */}
                     <button
                       type="button"
-                      onClick={() => handlePageChange(validCurrentPage - 1)}
-                      disabled={validCurrentPage === 1}
+                      onClick={() => handlePageChange(currentPage - 1)}
+                      disabled={currentPage === 1 || loading}
                       className="flex items-center gap-1 px-3 py-2 text-xs font-semibold rounded-md border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-2xs cursor-pointer"
                       aria-label="Previous page"
                     >
@@ -551,7 +702,7 @@ function PropertiesContent() {
 
                     {/* Page Numbers */}
                     <div className="flex items-center gap-1">
-                      {getPageNumbers(validCurrentPage, totalPages).map((p, idx) => {
+                      {getPageNumbers(currentPage, totalPages).map((p, idx) => {
                         if (p === '...') {
                           return (
                             <span
@@ -563,11 +714,12 @@ function PropertiesContent() {
                           );
                         }
                         const pageNum = Number(p);
-                        const isActive = pageNum === validCurrentPage;
+                        const isActive = pageNum === currentPage;
                         return (
                           <button
                             key={pageNum}
                             type="button"
+                            disabled={loading}
                             onClick={() => handlePageChange(pageNum)}
                             className={`min-w-8 h-8 px-2 text-xs font-semibold rounded-md transition-all cursor-pointer ${
                               isActive
@@ -586,8 +738,8 @@ function PropertiesContent() {
                     {/* Next Button */}
                     <button
                       type="button"
-                      onClick={() => handlePageChange(validCurrentPage + 1)}
-                      disabled={validCurrentPage === totalPages}
+                      onClick={() => handlePageChange(currentPage + 1)}
+                      disabled={currentPage === totalPages || loading}
                       className="flex items-center gap-1 px-3 py-2 text-xs font-semibold rounded-md border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-2xs cursor-pointer"
                       aria-label="Next page"
                     >
@@ -636,4 +788,3 @@ export default function PropertiesPage() {
     </Suspense>
   );
 }
-

@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter, useParams } from 'next/navigation';
 import { propertyService } from '@/services/propertyService';
-import { Property } from '@/types';
+import { Property, ListingType } from '@/types';
 import {
   Pencil,
   Building2,
@@ -24,6 +24,7 @@ import {
   Sparkles,
   Save,
   ExternalLink,
+  MapPin,
 } from 'lucide-react';
 
 const SUGGESTED_FEATURES = [
@@ -45,17 +46,31 @@ const SUGGESTED_FEATURES = [
   'EV Charging Station',
 ];
 
-const CITIES = [
+const POPULAR_CITIES = [
   'Pune',
   'Mumbai',
   'Bangalore',
   'Hyderabad',
-  'Goa',
-  'Delhi NCR',
+  'Delhi',
   'Chennai',
   'Kolkata',
   'Ahmedabad',
+  'Goa',
+  'Jaipur',
+  'Surat',
+  'Chandigarh',
+  'Kochi',
+  'Lucknow',
+  'Indore',
+  'Nagpur',
+  'Bhopal',
+  'Visakhapatnam',
+  'Patna',
+  'Vadodara',
 ];
+
+// In-memory cache for all Indian cities from CountriesNow API
+let cachedIndianCities: string[] = [];
 
 interface EditGalleryImage {
   id: string;
@@ -82,9 +97,15 @@ export default function EditPropertyClient() {
 
   // Form states
   const [title, setTitle] = useState('');
+  const [listingType, setListingType] = useState<ListingType>('sale');
   const [propertyType, setPropertyType] = useState('apartment');
   const [status, setStatus] = useState<'active' | 'inactive' | 'sold'>('active');
   const [city, setCity] = useState('');
+  const [citySearchInput, setCitySearchInput] = useState('');
+  const [indianCities, setIndianCities] = useState<string[]>(cachedIndianCities);
+  const [loadingCitiesApi, setLoadingCitiesApi] = useState<boolean>(cachedIndianCities.length === 0);
+  const [showCityDropdown, setShowCityDropdown] = useState(false);
+  const cityDropdownRef = useRef<HTMLDivElement>(null);
   const [location, setLocation] = useState('');
   const [address, setAddress] = useState('');
   const [price, setPrice] = useState('');
@@ -157,9 +178,11 @@ export default function EditPropertyClient() {
   useEffect(() => {
     if (property) {
       setTitle(property.title || '');
+      setListingType(property.listingType || 'sale');
       setStatus((property.status as 'active' | 'inactive' | 'sold') || 'active');
       setPropertyType(property.propertyType || 'apartment');
       setCity(property.city || '');
+      setCitySearchInput(property.city || '');
       setLocation(property.location || '');
       setAddress(property.address || '');
       setPrice(property.price !== undefined ? String(property.price) : '');
@@ -184,6 +207,86 @@ export default function EditPropertyClient() {
       }
     }
   }, [property]);
+
+  // City selection handler
+  const handleSelectCity = (selectedName: string) => {
+    setCity(selectedName);
+    setCitySearchInput(selectedName);
+    setShowCityDropdown(false);
+  };
+
+  // Close city dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (cityDropdownRef.current && !cityDropdownRef.current.contains(e.target as Node)) {
+        setShowCityDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Fetch Indian cities from CountriesNow API: https://countriesnow.space/api/v0.1/countries/cities
+  useEffect(() => {
+    if (cachedIndianCities.length > 0) {
+      setIndianCities(cachedIndianCities);
+      setLoadingCitiesApi(false);
+      return;
+    }
+
+    let isMounted = true;
+    async function loadIndiaCities() {
+      setLoadingCitiesApi(true);
+      try {
+        const res = await fetch('https://countriesnow.space/api/v0.1/countries/cities', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ country: 'india' }),
+        });
+        if (res.ok) {
+          const json = await res.json();
+          if (json && !json.error && Array.isArray(json.data) && json.data.length > 0) {
+            cachedIndianCities = json.data;
+            if (isMounted) {
+              setIndianCities(json.data);
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('CountriesNow cities API load failed, using local list:', err);
+      } finally {
+        if (isMounted) {
+          setLoadingCitiesApi(false);
+        }
+      }
+    }
+
+    loadIndiaCities();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Filter Indian cities from CountriesNow based on current search input
+  const filteredIndianCities = useMemo(() => {
+    const query = citySearchInput.trim().toLowerCase();
+    const sourceList = indianCities.length > 0 ? indianCities : POPULAR_CITIES;
+    if (!query) {
+      return POPULAR_CITIES;
+    }
+    const startsWithMatches: string[] = [];
+    const includesMatches: string[] = [];
+    for (const c of sourceList) {
+      const lower = c.toLowerCase();
+      if (lower.startsWith(query)) {
+        startsWithMatches.push(c);
+      } else if (lower.includes(query)) {
+        includesMatches.push(c);
+      }
+      if (startsWithMatches.length + includesMatches.length >= 60) break;
+    }
+    return [...startsWithMatches, ...includesMatches].slice(0, 50);
+  }, [indianCities, citySearchInput]);
 
   // Feature actions
   const addFeatureItem = (featName: string) => {
@@ -373,6 +476,7 @@ export default function EditPropertyClient() {
 
     const formData = new FormData();
     formData.append('title', title.trim());
+    formData.append('listingType', listingType);
     formData.append('status', status);
     formData.append('propertyType', propertyType);
     formData.append('city', city.trim());
@@ -477,7 +581,6 @@ export default function EditPropertyClient() {
   }
 
   // Make sure current saved values always appear in the selects
-  const cityOptions = city && !CITIES.includes(city) ? [city, ...CITIES] : CITIES;
   const bedroomOptions = [
     { v: '1', l: '1 BHK' },
     { v: '2', l: '2 BHK' },
@@ -576,8 +679,8 @@ export default function EditPropertyClient() {
             Basic Property Information
           </h3>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="md:col-span-2">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="md:col-span-3">
               <label htmlFor="title" className="block text-xs font-bold text-slate-700 mb-1.5">
                 Title <span className="text-rose-500">*</span>
               </label>
@@ -591,6 +694,24 @@ export default function EditPropertyClient() {
                 placeholder="e.g. Luxurious 3 BHK Sun-drenched Penthouse"
                 className="w-full h-10 px-3.5 text-sm rounded-md border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#e76f51] focus:ring-2 focus:ring-[#e76f51]/20 transition-all font-medium"
               />
+            </div>
+
+            {/* Listing Type / Purpose */}
+            <div>
+              <label htmlFor="listingType" className="block text-xs font-bold text-slate-700 mb-1.5">
+                Listing Type <span className="text-rose-500">*</span>
+              </label>
+              <select
+                id="listingType"
+                name="listingType"
+                required
+                value={listingType}
+                onChange={(e) => setListingType(e.target.value as ListingType)}
+                className="w-full h-10 px-3.5 text-sm rounded-md border border-slate-300 bg-white text-slate-900 focus:outline-none focus:border-[#e76f51] font-medium cursor-pointer"
+              >
+                <option value="sale">For Sale (Buy)</option>
+                <option value="rent">For Rent (Lease)</option>
+              </select>
             </div>
 
             <div>
@@ -641,25 +762,118 @@ export default function EditPropertyClient() {
           </h3>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label htmlFor="city" className="block text-xs font-bold text-slate-700 mb-1.5">
-                City <span className="text-rose-500">*</span>
-              </label>
-              <select
-                id="city"
-                name="city"
-                required
-                value={city}
-                onChange={(e) => setCity(e.target.value)}
-                className="w-full h-10 px-3.5 text-sm rounded-md border border-slate-300 bg-white text-slate-900 focus:outline-none focus:border-[#e76f51] font-medium cursor-pointer"
-              >
-                <option value="">Select City</option>
-                {cityOptions.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
+            {/* City (Searchable with CountriesNow Indian Cities API & Quick Select) */}
+            <div className="relative" ref={cityDropdownRef}>
+              <div className="flex items-center justify-between mb-1.5">
+                <label htmlFor="city-search" className="block text-xs font-bold text-slate-700">
+                  City (India) <span className="text-rose-500">*</span>
+                </label>
+                {city && (
+                  <span className="text-[11px] font-semibold text-emerald-600 flex items-center gap-1">
+                    <Check className="w-3 h-3" /> Selected: {city}
+                  </span>
+                )}
+              </div>
+
+              <div className="relative">
+                <input
+                  id="city-search"
+                  type="text"
+                  required
+                  value={citySearchInput}
+                  onChange={(e) => {
+                    setCitySearchInput(e.target.value);
+                    setCity(e.target.value);
+                    setShowCityDropdown(true);
+                  }}
+                  onFocus={() => setShowCityDropdown(true)}
+                  placeholder="Search Indian city (e.g. Pune, Mumbai, Bangalore)..."
+                  autoComplete="off"
+                  className="w-full h-10 pl-9 pr-9 text-sm rounded-md border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#e76f51] focus:ring-2 focus:ring-[#e76f51]/20 font-medium transition-all"
+                />
+                <MapPin className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+
+                {loadingCitiesApi && indianCities.length === 0 ? (
+                  <RefreshCw className="w-4 h-4 text-[#e76f51] animate-spin absolute right-3 top-1/2 -translate-y-1/2" />
+                ) : citySearchInput ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCity('');
+                      setCitySearchInput('');
+                    }}
+                    className="p-1 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 absolute right-2.5 top-1/2 -translate-y-1/2 cursor-pointer"
+                    title="Clear city"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                ) : null}
+              </div>
+
+              {/* Hidden input to ensure city is submitted in form */}
+              <input type="hidden" name="city" value={city} required />
+
+              {/* Autocomplete Dropdown */}
+              {showCityDropdown && (
+                <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-lg shadow-xl z-50 max-h-64 overflow-y-auto">
+                  {/* Top Header Badge */}
+                  <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 bg-slate-50 border-b border-slate-100 flex items-center justify-start">
+                    <span className="text-slate-400 font-normal">Click to select</span>
+                  </div>
+
+                  {filteredIndianCities.length > 0 ? (
+                    <div className="py-1">
+                      {filteredIndianCities.map((cityName, index) => (
+                        <button
+                          key={`${cityName}-${index}`}
+                          type="button"
+                          onClick={() => handleSelectCity(cityName)}
+                          className="w-full text-left px-3.5 py-2 hover:bg-orange-50/70 transition-colors flex items-center justify-between group cursor-pointer border-b border-slate-50 last:border-0"
+                        >
+                          <div className="flex items-center gap-2 min-w-0 pr-2">
+                            <MapPin className="w-3.5 h-3.5 text-slate-400 group-hover:text-[#e76f51] shrink-0" />
+                            <span className="text-xs font-semibold text-slate-800 group-hover:text-[#e76f51] truncate">
+                              {cityName}
+                            </span>
+                          </div>
+                          {city.toLowerCase() === cityName.toLowerCase() && (
+                            <Check className="w-3.5 h-3.5 text-[#e76f51] shrink-0" />
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="p-3 text-center text-xs text-slate-500">
+                      <span>No matching Indian city found for &quot;{citySearchInput}&quot;. You can keep it as custom city.</span>
+                    </div>
+                  )}
+
+                  {/* Popular Cities Quick Select (shown when no search input typed) */}
+                  {!citySearchInput.trim() && (
+                    <div className="p-2.5 bg-slate-50/50 border-t border-slate-100">
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2 px-1">
+                        Popular Cities (Quick Select)
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {POPULAR_CITIES.map((c) => (
+                          <button
+                            key={c}
+                            type="button"
+                            onClick={() => handleSelectCity(c)}
+                            className={`px-2.5 py-1 rounded text-xs font-semibold border transition-all cursor-pointer ${
+                              city.toLowerCase() === c.toLowerCase()
+                                ? 'bg-[#e76f51] text-white border-[#e76f51]'
+                                : 'bg-white text-slate-700 border-slate-200 hover:bg-orange-50 hover:border-orange-200 hover:text-[#e76f51]'
+                            }`}
+                          >
+                            {c}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             <div>
@@ -705,7 +919,7 @@ export default function EditPropertyClient() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
               <label htmlFor="price" className="block text-xs font-bold text-slate-700 mb-1.5">
-                Price (₹) <span className="text-rose-500">*</span>
+                {listingType === 'rent' ? 'Monthly Rent (₹)' : 'Price (₹)'} <span className="text-rose-500">*</span>
               </label>
               <input
                 id="price"
@@ -714,7 +928,7 @@ export default function EditPropertyClient() {
                 required
                 value={price}
                 onChange={(e) => setPrice(e.target.value)}
-                placeholder="e.g. 15000000"
+                placeholder={listingType === 'rent' ? 'e.g. 35000' : 'e.g. 15000000'}
                 className="w-full h-10 px-3.5 text-sm rounded-md border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#e76f51] font-medium"
               />
             </div>

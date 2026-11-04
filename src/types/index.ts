@@ -30,6 +30,7 @@ export interface Property {
   features?: string[];
   price: number;
   propertyType: string;
+  listingType?: ListingType;
   city: string;
   location: string;
   address?: string;
@@ -66,6 +67,7 @@ export interface Inquiry {
 }
 
 export interface PropertyFilterParams {
+  ids?: string;
   slug?: string;
   city?: string;
   propertyType?: string;
