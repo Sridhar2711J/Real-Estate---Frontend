@@ -98,6 +98,17 @@ export default function PropertyCard({ property, showSimilarityScore = false }: 
           <span className="px-2.5 py-1 text-[11px] font-semibold capitalize rounded-md bg-white/90 backdrop-blur-md text-slate-800 shadow-xs">
             {property.propertyType}
           </span>
+          {property.listingType && (
+            <span
+              className={`px-2.5 py-1 text-[11px] font-bold rounded-md shadow-xs backdrop-blur-md ${
+                property.listingType === 'rent'
+                  ? 'bg-amber-500/90 text-white'
+                  : 'bg-emerald-600/90 text-white'
+              }`}
+            >
+              {property.listingType === 'rent' ? 'For Rent' : 'For Sale'}
+            </span>
+          )}
         </div>
 
         {/* Save Bookmark Heart Button */}
@@ -119,8 +130,11 @@ export default function PropertyCard({ property, showSimilarityScore = false }: 
       <div className="p-4 sm:p-5 flex flex-col flex-1">
         {/* Price & Location */}
         <div className="flex items-baseline justify-between gap-2 mb-1.5">
-          <div className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">
-            {formatPrice(property.price)}
+          <div className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight flex items-baseline gap-1">
+            <span>{formatPrice(property.price)}</span>
+            {property.listingType === 'rent' && (
+              <span className="text-xs font-semibold text-slate-500">/mo</span>
+            )}
           </div>
           <div className="flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">
             <CheckCircle2 className="w-3 h-3 text-emerald-600" />

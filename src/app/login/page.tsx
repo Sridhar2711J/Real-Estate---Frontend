@@ -39,13 +39,17 @@ export default function LoginPage() {
     title?: string;
     type: ToastType;
   } | null>(null);
+  const [redirectParam, setRedirectParam] = useState<string>('');
 
   // Check for session expired toast notification on mount
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    const expiredNotice = sessionStorage.getItem('realnest_session_expired');
     const searchParams = new URLSearchParams(window.location.search);
+    const red = searchParams.get('redirect');
+    if (red) setRedirectParam(red);
+
+    const expiredNotice = sessionStorage.getItem('realnest_session_expired');
     const isExpired = searchParams.get('expired') === 'true';
 
     if (expiredNotice || isExpired) {
@@ -327,7 +331,7 @@ export default function LoginPage() {
           <div className="mt-8 text-center text-xs text-slate-500 font-medium">
             <span>Don&apos;t have any account? </span>
             <Link
-              href="/register"
+              href={redirectParam ? `/register?redirect=${encodeURIComponent(redirectParam)}` : '/register'}
               className="text-[#e76f51] hover:text-[#d85e40] font-bold hover:underline transition-colors"
             >
               Register

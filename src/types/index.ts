@@ -42,6 +42,14 @@ export interface Property {
   coverImage: string;
 
   sellerId?: string;
+  seller?: {
+    id: string;
+    name: string;
+    email?: string;
+    phone?: string;
+    avatar?: string;
+    role?: string;
+  };
   ownerId?: string;
   createdAt: string;
   status?: 'active' | 'inactive' | 'sold';

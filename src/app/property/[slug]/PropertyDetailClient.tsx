@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { propertyService } from '@/services/propertyService';
 import { formatPrice, calculateSimilarProperties } from '@/lib/propertyUtils';
@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 
 export default function PropertyDetailClient() {
+  const router = useRouter();
   const params = useParams();
   const slug =
     typeof params?.slug === 'string'
@@ -94,6 +95,32 @@ export default function PropertyDetailClient() {
     text: string;
   } | null>(null);
 
+  // Sync user info when authenticated
+  useEffect(() => {
+    if (user) {
+      if (user.name) setInquiryName(user.name);
+      if (user.email) setInquiryEmail(user.email);
+      if (user.phone) setInquiryPhone(user.phone);
+    }
+  }, [user]);
+
+  // Restore draft inquiry message if user was redirected to login and returned
+  useEffect(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const pending = sessionStorage.getItem('realnest_pending_inquiry');
+        if (pending) {
+          const parsed = JSON.parse(pending);
+          if (parsed && (parsed.propertyId === property?.id || parsed.slug === slug)) {
+            if (parsed.message) setInquiryMessage(parsed.message);
+            if (parsed.phone && !user?.phone) setInquiryPhone(parsed.phone);
+          }
+          sessionStorage.removeItem('realnest_pending_inquiry');
+        }
+      }
+    } catch {}
+  }, [property?.id, slug, user]);
+
   if (loading) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-28 text-center">
@@ -125,6 +152,26 @@ export default function PropertyDetailClient() {
 
   const handleInquirySubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    // If user is not authenticated, save draft inquiry and redirect to login
+    if (!user) {
+      try {
+        sessionStorage.setItem(
+          'realnest_pending_inquiry',
+          JSON.stringify({
+            propertyId: property.id,
+            slug: slug || property.id,
+            message: inquiryMessage,
+            phone: inquiryPhone,
+          })
+        );
+      } catch {}
+
+      const returnUrl = `/property/${slug || property.id}`;
+      router.push(`/login?redirect=${encodeURIComponent(returnUrl)}`);
+      return;
+    }
+
     setInquiryFeedback(null);
     setInquiryLoading(true);
 
@@ -135,9 +182,9 @@ export default function PropertyDetailClient() {
         propertySlug: property.id,
         propertyCity: property.city,
         propertyCoverImage: property.coverImage,
-        name: inquiryName,
-        email: inquiryEmail,
-        phone: inquiryPhone,
+        name: inquiryName || user.name || '',
+        email: inquiryEmail || user.email || '',
+        phone: inquiryPhone || user.phone || '',
         message: inquiryMessage,
         honeypotWebsite: honeypot,
       });
@@ -221,6 +268,17 @@ export default function PropertyDetailClient() {
               <span className="px-3 py-1 text-xs font-semibold capitalize rounded-md bg-white/90 backdrop-blur-md text-slate-900">
                 {property.propertyType}
               </span>
+              {property.listingType && (
+                <span
+                  className={`px-3 py-1 text-xs font-bold rounded-md shadow-xs backdrop-blur-md ${
+                    property.listingType === 'rent'
+                      ? 'bg-amber-500/90 text-white'
+                      : 'bg-emerald-600/90 text-white'
+                  }`}
+                >
+                  {property.listingType === 'rent' ? 'For Rent' : 'For Sale'}
+                </span>
+              )}
               <span className="px-3 py-1 text-xs font-semibold rounded-md bg-emerald-600 text-white flex items-center gap-1">
                 <CheckCircle2 className="w-3.5 h-3.5" /> Verified Listing
               </span>
@@ -274,8 +332,11 @@ export default function PropertyDetailClient() {
                 </div>
 
                 <div className="text-left sm:text-right shrink-0">
-                  <div className="text-2xl sm:text-3xl font-black text-slate-900">
-                    {formatPrice(property.price)}
+                  <div className="text-2xl sm:text-3xl font-black text-slate-900 flex items-baseline sm:justify-end gap-1">
+                    <span>{formatPrice(property.price)}</span>
+                    {property.listingType === 'rent' && (
+                      <span className="text-sm font-semibold text-slate-500">/mo</span>
+                    )}
                   </div>
                   <div className="text-xs font-semibold text-slate-400 mt-0.5">
                     ₹{pricePerSqft.toLocaleString('en-IN')} / sq.ft
@@ -321,6 +382,14 @@ export default function PropertyDetailClient() {
             <div className="bg-white rounded-lg p-6 sm:p-8 border border-slate-200/80 shadow-xs space-y-4">
               <h3 className="text-lg font-bold text-slate-900">Property Overview</h3>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-xs">
+                {property.listingType && (
+                  <div className="p-3 bg-slate-50 rounded-md">
+                    <span className="text-slate-400 block mb-1">Purpose</span>
+                    <span className="font-bold text-slate-900 capitalize">
+                      {property.listingType === 'rent' ? 'For Rent' : 'For Sale'}
+                    </span>
+                  </div>
+                )}
                 <div className="p-3 bg-slate-50 rounded-md">
                   <span className="text-slate-400 block mb-1">Property Type</span>
                   <span className="font-bold text-slate-900 capitalize">{property.propertyType}</span>
@@ -336,10 +405,6 @@ export default function PropertyDetailClient() {
                 <div className="p-3 bg-slate-50 rounded-md">
                   <span className="text-slate-400 block mb-1">Area</span>
                   <span className="font-bold text-slate-900">{property.area} sq.ft</span>
-                </div>
-                <div className="p-3 bg-slate-50 rounded-md">
-                  <span className="text-slate-400 block mb-1">Listing ID</span>
-                  <span className="font-bold text-slate-900 truncate block">{property.id}</span>
                 </div>
                 <div className="p-3 bg-slate-50 rounded-md">
                   <span className="text-slate-400 block mb-1">Status</span>
@@ -380,11 +445,24 @@ export default function PropertyDetailClient() {
             {/* Seller Info Card */}
             <div className="bg-white rounded-lg p-6 border border-slate-200/80 shadow-xs space-y-4">
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-md bg-slate-900 text-white font-bold flex items-center justify-center text-lg">
-                  S
-                </div>
+                {property.seller?.avatar ? (
+                  <div className="relative w-12 h-12 rounded-md overflow-hidden bg-slate-100 shrink-0">
+                    <Image
+                      src={property.seller.avatar}
+                      alt={property.seller.name || 'Seller'}
+                      fill
+                      className="object-cover"
+                    />
+                  </div>
+                ) : (
+                  <div className="w-12 h-12 rounded-md bg-slate-900 text-white font-bold flex items-center justify-center text-lg uppercase shrink-0">
+                    {property.seller?.name ? property.seller.name.charAt(0).toUpperCase() : 'S'}
+                  </div>
+                )}
                 <div>
-                  <h4 className="font-bold text-sm text-slate-900">Property Seller</h4>
+                  <h4 className="font-bold text-sm text-slate-900 capitalize">
+                    {property.seller?.name || 'Property Seller'}
+                  </h4>
                   <div className="flex items-center gap-1 text-[11px] font-semibold text-emerald-600">
                     <ShieldCheck className="w-3.5 h-3.5" /> Verified Seller
                   </div>
@@ -401,6 +479,18 @@ export default function PropertyDetailClient() {
                   Schedule visit or request more photos directly.
                 </p>
               </div>
+
+              {!user && (
+                <div className="p-3 rounded-md bg-amber-50 border border-amber-200 text-amber-800 text-xs flex items-center justify-between gap-2">
+                  <span>Sign in required to inquire with the seller.</span>
+                  <Link
+                    href={`/login?redirect=${encodeURIComponent(`/property/${slug || property.id}`)}`}
+                    className="font-bold underline text-amber-900 hover:text-amber-950 shrink-0 cursor-pointer"
+                  >
+                    Sign In
+                  </Link>
+                </div>
+              )}
 
               {inquiryFeedback && (
                 <div
@@ -489,11 +579,17 @@ export default function PropertyDetailClient() {
 
                 <button
                   type="submit"
+                  formNoValidate={!user}
                   disabled={inquiryLoading}
                   className="w-full h-10 px-4 rounded-md bg-[#e76f51] hover:bg-[#d85e40] text-white text-sm font-bold tracking-wide transition-all shadow-sm shadow-[#e76f51]/25 hover:shadow-md hover:shadow-[#e76f51]/35 flex items-center justify-center gap-2 disabled:opacity-60 cursor-pointer"
                 >
                   {inquiryLoading ? (
                     <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                  ) : !user ? (
+                    <>
+                      <Send className="w-3.5 h-3.5" />
+                      <span>Sign In to Send Inquiry</span>
+                    </>
                   ) : (
                     <>
                       <Send className="w-3.5 h-3.5" />

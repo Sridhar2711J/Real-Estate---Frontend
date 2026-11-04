@@ -22,6 +22,9 @@ export default function HeroSearch() {
     e.preventDefault();
     const params = new URLSearchParams();
 
+    if (tab) {
+      params.set('listingType', tab);
+    }
     if (query) {
       params.set('searchQuery', query);
     }
@@ -51,7 +54,20 @@ export default function HeroSearch() {
       Office: 'commercial',
       Villa: 'villa'
     };
-    router.push(`/properties?propertyType=${typeMap[catName] || 'apartment'}`);
+    const params = new URLSearchParams();
+    if (tab) {
+      params.set('listingType', tab);
+    }
+    if (typeMap[catName]) {
+      params.set('propertyType', typeMap[catName]);
+    }
+    if (query) {
+      params.set('searchQuery', query);
+    }
+    if (cityFilter) {
+      params.set('city', cityFilter);
+    }
+    router.push(`/properties?${params.toString()}`);
   };
 
   return (
@@ -61,7 +77,7 @@ export default function HeroSearch() {
         <button
           type="button"
           onClick={() => setTab('sale')}
-          className={`pb-1 transition-all ${
+          className={`pb-1 transition-all cursor-pointer ${
             tab === 'sale'
               ? 'text-[#111827] border-b-2 border-[#111827]'
               : 'text-slate-500 hover:text-slate-900'
@@ -73,7 +89,7 @@ export default function HeroSearch() {
         <button
           type="button"
           onClick={() => setTab('rent')}
-          className={`pb-1 transition-all ${
+          className={`pb-1 transition-all cursor-pointer ${
             tab === 'rent'
               ? 'text-[#111827] border-b-2 border-[#111827]'
               : 'text-slate-500 hover:text-slate-900'
@@ -91,7 +107,11 @@ export default function HeroSearch() {
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Enter an address, neighborhood, city or zip code"
+            placeholder={
+              tab === 'rent'
+                ? 'Search rentals by address, city...'
+                : 'Enter an address, city...'
+            }
             className="seamless-input flex-1 h-10 bg-transparent text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-0 focus:border-transparent px-1 border-none outline-none shadow-none"
             style={{
               border: 'none',

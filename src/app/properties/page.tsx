@@ -296,6 +296,14 @@ function PropertiesContent() {
           <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
             {savedOnly
               ? 'Saved Properties'
+              : listingType === 'rent'
+              ? city
+                ? `Properties for Rent in ${city}`
+                : 'Verified Properties for Rent'
+              : listingType === 'sale'
+              ? city
+                ? `Properties for Sale in ${city}`
+                : 'Verified Properties for Sale'
               : city
               ? `Properties for Sale and Rent in ${city}`
               : 'All Verified Residential & Commercial Listings'}

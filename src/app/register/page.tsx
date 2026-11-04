@@ -96,9 +96,11 @@ export default function RegisterPage() {
           title: 'Registration Successful!',
           message: res.message || 'Your account has been created. Redirecting to login page...',
         });
+        const searchParams = new URLSearchParams(window.location.search);
+        const redirectUrl = searchParams.get('redirect');
         setTimeout(() => {
-          router.push('/login');
-        }, 2000);
+          router.push(redirectUrl ? `/login?redirect=${encodeURIComponent(redirectUrl)}` : '/login');
+        }, 1500);
       } else {
         setError(res.message || 'Registration failed. Please try again.');
         setLoading(false);
@@ -389,7 +391,10 @@ export default function RegisterPage() {
 
           <div className="mt-3 sm:mt-4 text-center text-xs text-slate-500 font-medium">
             <span>Already have an account? </span>
-            <Link href="/login" className="text-[#e76f51] hover:text-[#d85e40] font-bold hover:underline transition-colors">
+            <Link
+              href={typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('redirect') ? `/login?redirect=${encodeURIComponent(new URLSearchParams(window.location.search).get('redirect') || '')}` : '/login'}
+              className="text-[#e76f51] hover:text-[#d85e40] font-bold hover:underline transition-colors"
+            >
               Log in
             </Link>
           </div>
