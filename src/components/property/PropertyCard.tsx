@@ -22,57 +22,18 @@ interface PropertyCardProps {
 }
 
 export default function PropertyCard({ property, showSimilarityScore = false }: PropertyCardProps) {
-  const auth = useAuth() as ReturnType<typeof useAuth> & {
-    isPropertySaved?: (id: string) => boolean;
-    toggleSaveProperty?: (id: string) => void;
-    savedPropertyIds?: string[];
-  };
+  const { user, isPropertySaved, toggleSaveProperty, savedPropertyIds } = useAuth();
 
-  const [saved, setSaved] = useState<boolean>(false);
-
-  useEffect(() => {
-    if (typeof auth?.isPropertySaved === 'function') {
-      setSaved(Boolean(auth.isPropertySaved(property.id)));
-    } else if (Array.isArray(auth?.savedPropertyIds)) {
-      setSaved(auth.savedPropertyIds.includes(property.id));
-    } else {
-      try {
-        const stored = typeof window !== 'undefined' ? localStorage.getItem('realnest_saved_properties') : null;
-        if (stored) {
-          const ids: string[] = JSON.parse(stored);
-          setSaved(Array.isArray(ids) && ids.includes(property.id));
-        }
-      } catch {
-        // ignore storage parse error
-      }
-    }
-  }, [auth, property.id]);
+  const saved = user && user.role === 'buyer'
+    ? Boolean(isPropertySaved?.(property.id) || savedPropertyIds?.includes(property.id))
+    : false;
 
   const handleToggleSave = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
 
-    if (typeof auth?.toggleSaveProperty === 'function') {
-      auth.toggleSaveProperty(property.id);
-      setSaved((prev) => !prev);
-      return;
-    }
-
-    try {
-      const stored = typeof window !== 'undefined' ? localStorage.getItem('realnest_saved_properties') : null;
-      let ids: string[] = stored ? JSON.parse(stored) : [];
-      if (!Array.isArray(ids)) ids = [];
-
-      if (ids.includes(property.id)) {
-        ids = ids.filter((id) => id !== property.id);
-        setSaved(false);
-      } else {
-        ids.push(property.id);
-        setSaved(true);
-      }
-      localStorage.setItem('realnest_saved_properties', JSON.stringify(ids));
-    } catch {
-      setSaved((prev) => !prev);
+    if (typeof toggleSaveProperty === 'function') {
+      toggleSaveProperty(property.id);
     }
   };
 

@@ -88,12 +88,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         setSavedPropertyIds(ids);
         setBookmarks(bList);
         setBookmarkCount(count);
-
-        if (typeof window !== 'undefined') {
-          try {
-            localStorage.setItem('realnest_saved_properties', JSON.stringify(ids));
-          } catch {}
-        }
       } else if (userData && userData.role !== 'buyer') {
         setSavedPropertyIds([]);
         setBookmarks([]);
@@ -103,18 +97,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     []
   );
 
-  // Restore client-side saved bookmarks and inquiries on mount
+  // Clean up any legacy localStorage key on mount
   useEffect(() => {
     if (typeof window !== 'undefined') {
       try {
-        const storedSaved = localStorage.getItem('realnest_saved_properties');
-        if (storedSaved) {
-          const parsed = JSON.parse(storedSaved);
-          if (Array.isArray(parsed)) {
-            setSavedPropertyIds(parsed);
-            setBookmarkCount(parsed.length);
-          }
-        }
+        localStorage.removeItem('realnest_saved_properties');
       } catch {
         // ignore
       }
@@ -125,6 +112,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     (id: string) => savedPropertyIds.includes(id),
     [savedPropertyIds]
   );
+
+  // Auto-save pending bookmark after user logs in or registers
+  const processPendingBookmark = useCallback(async (role?: string) => {
+    if (typeof window === 'undefined' || role !== 'buyer') return;
+    try {
+      const pendingId = sessionStorage.getItem('realnest_pending_bookmark');
+      if (pendingId) {
+        sessionStorage.removeItem('realnest_pending_bookmark');
+        const res = await bookmarkService.addBookmark(pendingId);
+        if (res && res.success) {
+          setSavedPropertyIds((prev) => Array.from(new Set([...prev, pendingId])));
+          if (res.bookmark) {
+            setBookmarks((prev) => [res.bookmark!, ...prev.filter((b) => b.propertyId !== pendingId)]);
+          }
+          if (typeof res.bookmarkCount === 'number') {
+            setBookmarkCount(res.bookmarkCount);
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to process pending bookmark:', err);
+    }
+  }, []);
 
   // Add / Remove bookmarks using backend API when buyer is logged in
   const toggleSaveProperty = useCallback(
@@ -173,17 +183,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           }
         }
       } else {
-        // Fallback for unauthenticated guest
-        setSavedPropertyIds((prev) => {
-          const next = prev.includes(id) ? prev.filter((pId) => pId !== id) : [...prev, id];
-          if (typeof window !== 'undefined') {
-            try {
-              localStorage.setItem('realnest_saved_properties', JSON.stringify(next));
-            } catch {}
-          }
-          setBookmarkCount(next.length);
-          return next;
-        });
+        // Unauthenticated guest tries to bookmark:
+        // Store pending bookmark in sessionStorage and redirect to login page
+        if (typeof window !== 'undefined') {
+          try {
+            sessionStorage.setItem('realnest_pending_bookmark', id);
+          } catch {}
+          const currentPath = window.location.pathname;
+          const currentSearch = window.location.search;
+          const currentUrl = currentPath + currentSearch;
+          const isAuthPage =
+            currentPath.startsWith('/login') ||
+            currentPath.startsWith('/register') ||
+            currentPath.startsWith('/forgot-password');
+          const redirectParam = encodeURIComponent(isAuthPage ? '/' : currentUrl);
+          window.location.href = `/login?redirect=${redirectParam}`;
+        }
       }
     },
     [user, savedPropertyIds]
@@ -339,6 +354,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
             sessionStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(res.user));
             if (res.user.role === 'buyer') {
               syncBookmarkData(res.user, res.bookmarks, res.bookmarkCount, res.savedPropertyIds);
+              await processPendingBookmark(res.user.role);
             }
           } else {
             // Token expired or invalid
@@ -381,7 +397,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     };
 
     initializeAuth();
-  }, [clearAuth, syncBookmarkData]);
+  }, [clearAuth, syncBookmarkData, processPendingBookmark]);
 
   // LOGIN - Call backend login endpoint
   const login = async (
@@ -426,6 +442,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           response.bookmarkCount,
           response.savedPropertyIds
         );
+        await processPendingBookmark(response.user.role);
       }
 
       return {
@@ -457,6 +474,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           success: false,
           message: response?.message || 'Registration failed',
         };
+      }
+
+      if (response.user && response.token) {
+        saveUserToStorage(response.user, response.token, response.refreshToken);
+        if (response.user.role === 'buyer') {
+          syncBookmarkData(
+            response.user,
+            response.bookmarks,
+            response.bookmarkCount,
+            response.savedPropertyIds
+          );
+          await processPendingBookmark(response.user.role);
+        }
       }
 
       return {

@@ -22,22 +22,7 @@ export default function Navbar() {
   const pathname = usePathname();
   const { user, logout, savedPropertyIds } = useAuth();
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [localSavedIds, setLocalSavedIds] = useState<string[]>([]);
   const [unreadInquiriesCount, setUnreadInquiriesCount] = useState<number>(0);
-
-  React.useEffect(() => {
-    try {
-      const stored = typeof window !== 'undefined' ? localStorage.getItem('realnest_saved_properties') : null;
-      if (stored) {
-        const ids = JSON.parse(stored);
-        if (Array.isArray(ids)) {
-          setLocalSavedIds(ids);
-        }
-      }
-    } catch {
-      // ignore
-    }
-  }, []);
 
   React.useEffect(() => {
     let isMounted = true;
@@ -75,7 +60,7 @@ export default function Navbar() {
   }
 
   const isSellerPortal = pathname.startsWith('/seller');
-  const safeSavedIds = Array.isArray(savedPropertyIds) ? savedPropertyIds : localSavedIds;
+  const safeSavedIds = Array.isArray(savedPropertyIds) ? savedPropertyIds : [];
 
   return (
     <header className="sticky top-0 z-50 w-full bg-white/95 backdrop-blur-md border-b border-slate-100 transition-all">

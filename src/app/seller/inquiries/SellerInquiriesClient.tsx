@@ -21,7 +21,6 @@ import {
   X,
   RotateCcw,
   Loader2,
-  Trash2,
 } from 'lucide-react';
 
 export default function SellerInquiriesClient() {
@@ -136,7 +135,8 @@ export default function SellerInquiriesClient() {
 
   const handleSendReply = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedInquiry || !replyMessage.trim() || replySubmitting) return;
+    // Prevent a second reply even if the submit handler is triggered programmatically.
+    if (!selectedInquiry || selectedInquiry.replyMessage || !replyMessage.trim() || replySubmitting) return;
 
     setReplySubmitting(true);
     setActionFeedback(null);
@@ -186,21 +186,6 @@ export default function SellerInquiriesClient() {
       }
     } catch (err) {
       console.error('Failed to change status:', err);
-    }
-  };
-
-  const handleDelete = async (inqId: string) => {
-    if (!confirm('Are you sure you want to delete this inquiry?')) return;
-    try {
-      const res = await inquiryService.deleteInquiry(inqId);
-      if (res.success) {
-        if (selectedInquiry?.id === inqId) {
-          setSelectedInquiry(null);
-        }
-        fetchInquiries();
-      }
-    } catch (err) {
-      console.error('Failed to delete inquiry:', err);
     }
   };
 
@@ -472,14 +457,6 @@ export default function SellerInquiriesClient() {
                             <Eye className="w-3.5 h-3.5" />
                             <span>View &amp; Reply</span>
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDelete(inq.id)}
-                            className="p-1.5 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
-                            title="Delete Inquiry"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
                         </div>
                       </td>
                     </tr>
@@ -690,42 +667,50 @@ export default function SellerInquiriesClient() {
                 </div>
               )}
 
-              {/* Reply Form */}
-              <form onSubmit={handleSendReply} className="space-y-3 pt-2 border-t border-slate-100">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    {selectedInquiry.replyMessage ? 'Send Updated Reply:' : 'Direct Reply to Buyer:'}
-                  </label>
-                  <textarea
-                    rows={3}
-                    value={replyMessage}
-                    onChange={(e) => setReplyMessage(e.target.value)}
-                    placeholder={`Write your response to ${selectedInquiry.name} (e.g. site visit schedule, brochure details)...`}
-                    className="w-full p-2.5 text-xs rounded-md border border-slate-300 focus:outline-none focus:border-[#e76f51] focus:ring-2 focus:ring-[#e76f51]/20 font-medium"
-                    required
-                  />
-                </div>
-
-                {actionFeedback && (
-                  <p
-                    className={`text-xs font-semibold ${
-                      replySent ? 'text-emerald-600' : 'text-rose-600'
-                    }`}
-                  >
-                    {actionFeedback}
+              {/* One-time Reply Form: hidden after a reply has been sent */}
+              {selectedInquiry.replyMessage ? (
+                <div className="pt-3 border-t border-slate-100">
+                  <p className="text-xs font-semibold text-emerald-700 flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4" />
+                    Reply already sent. You cannot send another reply to this inquiry.
                   </p>
-                )}
+                  <div className="flex justify-end mt-3">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedInquiry(null)}
+                      className="px-3 py-1.5 rounded-md border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 cursor-pointer"
+                    >
+                      Close
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <form onSubmit={handleSendReply} className="space-y-3 pt-2 border-t border-slate-100">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Direct Reply to Buyer:
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={replyMessage}
+                      onChange={(e) => setReplyMessage(e.target.value)}
+                      placeholder={`Write your response to ${selectedInquiry.name} (e.g. site visit schedule, brochure details)...`}
+                      className="w-full p-2.5 text-xs rounded-md border border-slate-300 focus:outline-none focus:border-[#e76f51] focus:ring-2 focus:ring-[#e76f51]/20 font-medium"
+                      required
+                    />
+                  </div>
 
-                <div className="flex items-center justify-between">
-                  <button
-                    type="button"
-                    onClick={() => handleDelete(selectedInquiry.id)}
-                    className="text-xs text-rose-500 hover:text-rose-700 font-semibold flex items-center gap-1 cursor-pointer"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" /> Delete
-                  </button>
+                  {actionFeedback && (
+                    <p
+                      className={`text-xs font-semibold ${
+                        replySent ? 'text-emerald-600' : 'text-rose-600'
+                      }`}
+                    >
+                      {actionFeedback}
+                    </p>
+                  )}
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center justify-end gap-2">
                     <button
                       type="button"
                       onClick={() => setSelectedInquiry(null)}
@@ -751,8 +736,8 @@ export default function SellerInquiriesClient() {
                       )}
                     </button>
                   </div>
-                </div>
-              </form>
+                </form>
+              )}
             </div>
           </div>
         </div>

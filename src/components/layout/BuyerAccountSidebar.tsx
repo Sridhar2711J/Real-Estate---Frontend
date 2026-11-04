@@ -19,26 +19,11 @@ import {
 export default function BuyerAccountSidebar() {
     const pathname = usePathname();
     const { user, logout, savedPropertyIds } = useAuth();
-    const [savedCount, setSavedCount] = React.useState<number>(0);
     const [inquiryCount, setInquiryCount] = React.useState<number>(0);
 
-    React.useEffect(() => {
-        if (Array.isArray(savedPropertyIds)) {
-            setSavedCount(savedPropertyIds.length);
-        } else {
-            try {
-                const stored = typeof window !== 'undefined' ? localStorage.getItem('realnest_saved_properties') : null;
-                if (stored) {
-                    const ids = JSON.parse(stored);
-                    if (Array.isArray(ids)) {
-                        setSavedCount(ids.length);
-                    }
-                }
-            } catch {
-                // ignore
-            }
-        }
-    }, [savedPropertyIds]);
+    const bookmarkCount = Array.isArray(savedPropertyIds)
+        ? savedPropertyIds.length
+        : (user?.bookmarkCount || 0);
 
     React.useEffect(() => {
         let isMounted = true;
@@ -69,8 +54,6 @@ export default function BuyerAccountSidebar() {
             window.removeEventListener('inquiry:updated', handleUpdated);
         };
     }, [user]);
-
-    const bookmarkCount = Array.isArray(savedPropertyIds) ? savedPropertyIds.length : savedCount;
 
     const navItems = [
         {
