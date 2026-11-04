@@ -37,7 +37,8 @@ export interface AuthContextType {
   }>;
 
   logout: () => Promise<void>;
-  updateUserProfile: (data: Partial<User>) => void;
+  updateUserProfile: (data: Partial<User>) => Promise<{ success: boolean; message: string; user?: User }>;
+  uploadAvatar: (file: File) => Promise<{ success: boolean; message: string; avatarUrl?: string; user?: User }>;
   getMe: () => Promise<User | null>;
 
   // Properties & Inquiries (Client state)
@@ -322,6 +323,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   }, [clearAuth]);
 
+  // Synchronize state when tokens are refreshed or session expires globally
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const handleTokenRefreshed = (e: any) => {
+      const newToken = e.detail?.token;
+      const newRefreshToken = e.detail?.refreshToken;
+      if (newToken) setToken(newToken);
+      if (newRefreshToken) setRefreshToken(newRefreshToken);
+    };
+
+    const handleAuthExpired = () => {
+      clearAuth();
+    };
+
+    window.addEventListener('auth:token-refreshed', handleTokenRefreshed);
+    window.addEventListener('auth:expired', handleAuthExpired);
+
+    return () => {
+      window.removeEventListener('auth:token-refreshed', handleTokenRefreshed);
+      window.removeEventListener('auth:expired', handleAuthExpired);
+    };
+  }, [clearAuth]);
+
   // Restore authenticated session on mount
   useEffect(() => {
     const initializeAuth = async () => {
@@ -365,8 +390,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
             // Token expired or invalid
             clearAuth();
           }
-        } catch {
-          // If network error, leave session in place
+        } catch (err: any) {
+          // If token expired, invalid, or auth error occurred, clean up and redirect
+          const isExpiredError =
+            err?.status === 401 ||
+            err?.status === 403 ||
+            err?.message?.toLowerCase().includes('token') ||
+            err?.message?.toLowerCase().includes('expired');
+
+          if (isExpiredError) {
+            clearAuth();
+            if (typeof window !== 'undefined') {
+              sessionStorage.setItem(
+                'realnest_session_expired',
+                'Your session has expired. Please log in again.'
+              );
+              const pathname = window.location.pathname;
+              const isAuthPage =
+                pathname.startsWith('/login') ||
+                pathname.startsWith('/register') ||
+                pathname.startsWith('/forgot-password');
+
+              if (!isAuthPage) {
+                const redirectParam = encodeURIComponent(pathname + window.location.search);
+                window.location.href = `/login?expired=true&redirect=${redirectParam}`;
+              }
+            }
+          }
         }
       } catch (error) {
         console.warn('Failed to restore authentication session:', error);
@@ -460,23 +510,88 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
-  // UPDATE USER PROFILE
-  const updateUserProfile = (updatedData: Partial<User>) => {
-    if (!user) return;
-
-    const updatedUser: User = {
-      ...user,
+  // UPDATE USER PROFILE - Call backend PUT /api/users/profile
+  const updateUserProfile = async (
+    updatedData: Partial<User>
+  ): Promise<{ success: boolean; message: string; user?: User }> => {
+    const previousUser = user;
+    const optimisticUser: User = {
+      ...(user || { id: 'temp', email: '', name: '', role: 'buyer' }),
       ...updatedData,
     };
+    setUser(optimisticUser);
 
-    setUser(updatedUser);
+    try {
+      const res = await userService.updateProfile({
+        name: updatedData.name,
+        phone: updatedData.phone,
+        avatar: updatedData.avatar,
+      });
 
-    if (typeof window !== 'undefined') {
-      try {
-        sessionStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(updatedUser));
-      } catch (err) {
-        console.warn('Update profile storage warning:', err);
+      if (res && res.success && res.user) {
+        setUser(res.user);
+        if (typeof window !== 'undefined') {
+          sessionStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(res.user));
+        }
+        return {
+          success: true,
+          message: res.message || 'Profile updated successfully.',
+          user: res.user,
+        };
+      } else {
+        if (previousUser) setUser(previousUser);
+        return {
+          success: false,
+          message: res?.message || 'Failed to update profile.',
+        };
       }
+    } catch (err: any) {
+      if (previousUser) setUser(previousUser);
+      return {
+        success: false,
+        message: err?.message || 'Network error updating profile.',
+      };
+    }
+  };
+
+  // UPLOAD AVATAR - Convert to WebP & upload via POST /api/users/upload-avatar
+  const uploadAvatar = async (
+    file: File
+  ): Promise<{ success: boolean; message: string; avatarUrl?: string; user?: User }> => {
+    try {
+      const res = await userService.uploadAvatar(file);
+
+      if (res && res.success) {
+        const nextUser: User | null = res.user
+          ? res.user
+          : user
+          ? { ...user, avatar: res.avatarUrl }
+          : null;
+
+        if (nextUser) {
+          setUser(nextUser);
+          if (typeof window !== 'undefined') {
+            sessionStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(nextUser));
+          }
+        }
+
+        return {
+          success: true,
+          message: res.message || 'Avatar uploaded successfully.',
+          avatarUrl: res.avatarUrl,
+          user: nextUser || undefined,
+        };
+      } else {
+        return {
+          success: false,
+          message: res?.message || 'Failed to upload avatar.',
+        };
+      }
+    } catch (err: any) {
+      return {
+        success: false,
+        message: err?.message || 'Error uploading profile image.',
+      };
     }
   };
 
@@ -509,6 +624,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         register,
         logout,
         updateUserProfile,
+        uploadAvatar,
         getMe,
         properties,
         inquiries,

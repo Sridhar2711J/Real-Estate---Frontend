@@ -35,6 +35,25 @@ export interface CommonResponse {
   message: string;
 }
 
+export interface UpdateProfileData {
+  name?: string;
+  phone?: string;
+  avatar?: string;
+}
+
+export interface UpdateProfileResponse {
+  success: boolean;
+  message: string;
+  user?: User;
+}
+
+export interface UploadAvatarResponse {
+  success: boolean;
+  message: string;
+  avatarUrl?: string;
+  user?: User;
+}
+
 export const userService = {
   /**
    * Register a new user account (Buyer or Seller)
@@ -73,6 +92,31 @@ export const userService = {
   async getMe(): Promise<GetMeResponse> {
     return apiClient<GetMeResponse>('/users/me', {
       method: 'GET',
+    });
+  },
+
+  /**
+   * Update authenticated user profile
+   * PUT /api/users/profile
+   */
+  async updateProfile(data: UpdateProfileData): Promise<UpdateProfileResponse> {
+    return apiClient<UpdateProfileResponse>('/users/profile', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  /**
+   * Upload user avatar image (converted to WebP on backend, max 5MB)
+   * POST /api/users/upload-avatar
+   */
+  async uploadAvatar(file: File): Promise<UploadAvatarResponse> {
+    const formData = new FormData();
+    formData.append('avatar', file);
+
+    return apiClient<UploadAvatarResponse>('/users/upload-avatar', {
+      method: 'POST',
+      body: formData,
     });
   },
 

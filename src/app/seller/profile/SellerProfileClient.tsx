@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
@@ -18,11 +18,15 @@ import {
   TrendingUp,
   MapPin,
   Briefcase,
-  FileCheck
+  FileCheck,
+  Camera,
+  AlertCircle,
 } from 'lucide-react';
 
 export default function SellerProfileClient() {
-  const { user, updateUserProfile, properties, getMyInquiries } = useAuth();
+  const { user, updateUserProfile, uploadAvatar, properties, getMyInquiries } = useAuth();
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -32,7 +36,10 @@ export default function SellerProfileClient() {
   });
 
   const [savedSuccess, setSavedSuccess] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('Profile updated successfully.');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -40,7 +47,7 @@ export default function SellerProfileClient() {
         ...prev,
         name: user.name || '',
         email: user.email || '',
-        phone: user.phone || '+91 98220 12345',
+        phone: user.phone || '',
       }));
     }
   }, [user]);
@@ -53,24 +60,67 @@ export default function SellerProfileClient() {
   const allInquiries = typeof getMyInquiries === 'function' ? getMyInquiries() : [];
   const totalPortfolioValue = myProperties.reduce((sum, p) => sum + (p.price || 0), 0);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Handle Profile Avatar Upload (Max 5MB, converts to WebP on backend)
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setErrorMessage(null);
+
+    // Validate max 5MB
+    if (file.size > 5 * 1024 * 1024) {
+      setErrorMessage('Selected image exceeds the 5MB file size limit.');
+      return;
+    }
+
+    if (!file.type.startsWith('image/')) {
+      setErrorMessage('Please select a valid image file (PNG, JPG, or WebP).');
+      return;
+    }
+
+    setUploadingImage(true);
+    try {
+      const res = await uploadAvatar(file);
+      if (res && res.success) {
+        setSuccessMessage(res.message || 'Profile photo uploaded and converted to WebP successfully.');
+        setSavedSuccess(true);
+        setTimeout(() => setSavedSuccess(false), 4000);
+      } else {
+        setErrorMessage(res?.message || 'Failed to upload profile photo.');
+      }
+    } catch (err: any) {
+      setErrorMessage(err?.message || 'Error communicating with upload server.');
+    } finally {
+      setUploadingImage(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
+    setErrorMessage(null);
 
-    setTimeout(() => {
-      updateUserProfile({
-        name: formData.name,
-        email: formData.email,
-        phone: formData.phone,
+    try {
+      const res = await updateUserProfile({
+        name: formData.name.trim(),
+        phone: formData.phone.trim() || undefined,
       });
 
+      if (res && res.success) {
+        setSuccessMessage(res.message || 'Seller profile details updated successfully!');
+        setSavedSuccess(true);
+        setTimeout(() => {
+          setSavedSuccess(false);
+        }, 4000);
+      } else {
+        setErrorMessage(res?.message || 'Failed to update profile.');
+      }
+    } catch (err: any) {
+      setErrorMessage(err?.message || 'Error updating profile.');
+    } finally {
       setIsSubmitting(false);
-      setSavedSuccess(true);
-
-      setTimeout(() => {
-        setSavedSuccess(false);
-      }, 3500);
-    }, 400);
+    }
   };
 
   return (
@@ -103,19 +153,49 @@ export default function SellerProfileClient() {
       <div className="bg-white rounded-lg border border-slate-200/80 shadow-xs overflow-hidden">
         <div className="p-6 sm:p-8 border-b border-slate-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <div className="relative w-16 h-16 rounded-lg bg-slate-900 text-white flex items-center justify-center font-bold text-2xl overflow-hidden shrink-0 ring-2 ring-slate-100">
-              {user?.avatar ? (
-                <Image
-                  src={user.avatar}
-                  alt={user.name || 'Seller'}
-                  fill
-                  sizes="64px"
-                  className="object-cover"
-                />
-              ) : (
-                <span>{user?.name?.charAt(0) || 'S'}</span>
-              )}
+            {/* Interactive Avatar Upload Box */}
+            <div className="relative group/avatar">
+              <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-2xl overflow-hidden shrink-0 ring-4 ring-slate-100 shadow-sm">
+                {user?.avatar ? (
+                  <Image
+                    src={user.avatar}
+                    alt={user.name || 'Seller'}
+                    fill
+                    sizes="80px"
+                    className="object-cover"
+                  />
+                ) : (
+                  <span>{user?.name?.charAt(0) || 'S'}</span>
+                )}
+
+                {uploadingImage && (
+                  <div className="absolute inset-0 bg-black/60 flex items-center justify-center z-10">
+                    <RefreshCw className="w-5 h-5 text-white animate-spin" />
+                  </div>
+                )}
+              </div>
+
+              {/* Camera Action Button */}
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploadingImage}
+                className="absolute bottom-0 right-0 p-2 rounded-full bg-[#e76f51] hover:bg-[#d85e40] text-white shadow-md transition-all hover:scale-105 cursor-pointer disabled:opacity-50"
+                title="Upload Profile Picture (Max 5MB • Automatically converted to WebP)"
+                aria-label="Upload profile image"
+              >
+                <Camera className="w-3.5 h-3.5" />
+              </button>
+
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/jpg"
+                className="hidden"
+                onChange={handleAvatarChange}
+              />
             </div>
+
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-lg font-bold text-slate-900">{user?.name || 'Seller Partner'}</h2>
@@ -123,6 +203,9 @@ export default function SellerProfileClient() {
                   Seller Account
                 </span>
               </div>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Click camera to change photo • Max 5MB
+              </p>
             </div>
           </div>
 
@@ -140,7 +223,14 @@ export default function SellerProfileClient() {
         {savedSuccess && (
           <div className="mx-6 sm:mx-8 mt-6 p-4 rounded-md bg-emerald-50 border border-emerald-200 flex items-center gap-3 text-emerald-800 text-xs font-semibold animate-in fade-in">
             <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0" />
-            <span>Seller profile details updated successfully! Changes have been saved.</span>
+            <span>{successMessage}</span>
+          </div>
+        )}
+
+        {errorMessage && (
+          <div className="mx-6 sm:mx-8 mt-6 p-4 rounded-md bg-rose-50 border border-rose-200 flex items-center gap-3 text-rose-800 text-xs font-semibold animate-in fade-in">
+            <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
+            <span>{errorMessage}</span>
           </div>
         )}
 

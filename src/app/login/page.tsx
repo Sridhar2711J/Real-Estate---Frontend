@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { Eye, EyeOff, ChevronLeft, ChevronRight } from 'lucide-react';
+import Toast, { ToastType } from '@/components/common/Toast';
 
 const CAROUSEL_SLIDES = [
   {
@@ -34,6 +35,29 @@ export default function LoginPage() {
   const [rememberMe, setRememberMe] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [toast, setToast] = useState<{
+    message: string;
+    title?: string;
+    type: ToastType;
+  } | null>(null);
+
+  // Check for session expired toast notification on mount
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const expiredNotice = sessionStorage.getItem('realnest_session_expired');
+    const searchParams = new URLSearchParams(window.location.search);
+    const isExpired = searchParams.get('expired') === 'true';
+
+    if (expiredNotice || isExpired) {
+      sessionStorage.removeItem('realnest_session_expired');
+      setToast({
+        type: 'warning',
+        title: 'Session Expired',
+        message: expiredNotice || 'Your session has expired. Please sign in again.',
+      });
+    }
+  }, []);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -63,7 +87,12 @@ export default function LoginPage() {
     try {
       const res = await login(email, password);
       if (res.success) {
-        if (res.user?.role === 'buyer') {
+        const searchParams = new URLSearchParams(window.location.search);
+        const redirectUrl = searchParams.get('redirect');
+
+        if (redirectUrl && redirectUrl.startsWith('/') && !redirectUrl.startsWith('/login')) {
+          router.push(redirectUrl);
+        } else if (res.user?.role === 'buyer') {
           router.push('/');
         } else {
           router.push('/seller/dashboard');
@@ -79,7 +108,17 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen w-full flex flex-col md:flex-row bg-white text-slate-900 font-sans">
+    <div className="min-h-screen w-full flex flex-col md:flex-row bg-white text-slate-900 font-sans relative">
+      {/* Top Center Session Expired Toast Notification */}
+      {toast && (
+        <Toast
+          type={toast.type}
+          title={toast.title}
+          message={toast.message}
+          duration={2000}
+          onClose={() => setToast(null)}
+        />
+      )}
       {/* LEFT SPLIT PANEL: Interactive Cursor-Based Carousel */}
       <div className="relative w-full md:w-1/2 min-h-[420px] md:min-h-screen flex flex-col justify-between p-8 sm:p-12 overflow-hidden bg-slate-950">
         {/* Background Images Carousel with smooth crossfade */}

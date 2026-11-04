@@ -19,6 +19,11 @@ const nextConfig: NextConfig = {
         protocol: 'https',
         hostname: 'plus.unsplash.com',
       },
+      {
+        protocol: 'http',
+        hostname: 'localhost',
+        port: '5000',
+      },
     ],
   },
   turbopack: {
@@ -41,6 +46,14 @@ const nextConfig: NextConfig = {
       { source: '/dashboard/properties/:slug*', destination: '/seller/properties/:slug*', permanent: true },
       { source: '/properties/new', destination: '/seller/properties/new', permanent: true },
       { source: '/seller/dashborad', destination: '/seller/dashboard', permanent: true },
+    ];
+  },
+  async rewrites() {
+    return [
+      {
+        source: '/uploads/:path*',
+        destination: 'http://localhost:5000/uploads/:path*',
+      },
     ];
   },
 };
