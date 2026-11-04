@@ -5,6 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useAuth } from '@/context/AuthContext';
 import { propertyService } from '@/services/propertyService';
+import { inquiryService } from '@/services/inquiryService';
 import { Property } from '@/types';
 import { formatPrice } from '@/lib/propertyUtils';
 import {
@@ -23,9 +24,10 @@ import {
 } from 'lucide-react';
 
 export default function SellerPropertiesClient() {
-  const { inquiries } = useAuth();
+  const { user } = useAuth();
 
   const [properties, setProperties] = useState<Property[]>([]);
+  const [inquiryCountsByProp, setInquiryCountsByProp] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState<boolean>(true);
 
   // Filters state
@@ -105,11 +107,27 @@ export default function SellerPropertiesClient() {
     fetchSellerProperties();
   }, [fetchSellerProperties]);
 
-  const safeInquiries = Array.isArray(inquiries) ? inquiries : [];
+  useEffect(() => {
+    let isMounted = true;
+    inquiryService.getInquiries({ limit: 100 }).then((res) => {
+      if (isMounted && res && res.success && Array.isArray(res.inquiries)) {
+        const counts: Record<string, number> = {};
+        res.inquiries.forEach((inq) => {
+          if (inq.propertyId) {
+            counts[inq.propertyId] = (counts[inq.propertyId] || 0) + 1;
+          }
+        });
+        setInquiryCountsByProp(counts);
+      }
+    }).catch(() => {});
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Count inquiries per property
   const getInquiryCount = (propertyId: string) => {
-    return safeInquiries.filter((inq) => inq.propertyId === propertyId).length;
+    return inquiryCountsByProp[propertyId] || 0;
   };
 
   // Direct inline status change via API using slug or id

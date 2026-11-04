@@ -1,18 +1,16 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useAuth } from '@/context/AuthContext';
-import { propertyService } from '@/services/propertyService';
-import { Inquiry, Property } from '@/types';
-import { formatPrice } from '@/lib/propertyUtils';
+import { inquiryService } from '@/services/inquiryService';
+import { Inquiry } from '@/types';
 import {
   MessageSquare,
   Search,
   Calendar,
   Clock,
-  CheckCircle,
   Building2,
   Mail,
   Phone,
@@ -21,74 +19,114 @@ import {
   X,
   Eye,
   CheckCircle2,
-  Sparkles,
   ExternalLink,
+  ChevronLeft,
+  ChevronRight,
+  RotateCcw,
+  LayoutList,
+  Table as TableIcon,
+  Loader2,
+  Trash2,
 } from 'lucide-react';
 
 export default function BuyerInquiriesClient() {
-  const { user, getMyInquiries } = useAuth();
-  const [properties, setProperties] = useState<Property[]>([]);
-  const [filterStatus, setFilterStatus] = useState<'all' | 'new' | 'read' | 'replied'>('all');
+  const { user } = useAuth();
+
+  const [inquiries, setInquiries] = useState<Inquiry[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
+
+  // Backend Search & Filter
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'new' | 'read' | 'replied'>('all');
+
+  // Backend Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(5);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+
+  // Status counts from backend
+  const [statusCounts, setStatusCounts] = useState({
+    all: 0,
+    new: 0,
+    read: 0,
+    replied: 0,
+    unread: 0,
+  });
+
+  // Selected Inquiry Modal
   const [selectedInquiry, setSelectedInquiry] = useState<Inquiry | null>(null);
 
+  // Search debounce (300ms)
   useEffect(() => {
-    let isMounted = true;
-    async function loadProperties() {
-      try {
-        const res = await propertyService.getProperties({ all: true });
-        if (isMounted && res && res.success && Array.isArray(res.properties)) {
-          setProperties(res.properties);
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+      setCurrentPage(1);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Load inquiries from backend
+  const fetchInquiries = useCallback(async () => {
+    if (!user) return;
+    setLoading(true);
+    try {
+      const res = await inquiryService.getInquiries({
+        search: debouncedSearch,
+        status: filterStatus !== 'all' ? filterStatus : undefined,
+        page: currentPage,
+        limit: pageSize,
+      });
+
+      if (res && res.success) {
+        setInquiries(res.inquiries || []);
+        if (res.pagination) {
+          setTotalItems(res.pagination.total);
+          setTotalPages(res.pagination.totalPages || 1);
         }
-      } catch (err) {
-        console.error('Failed to load properties in buyer inquiries:', err);
+        if (res.counts) {
+          setStatusCounts(res.counts);
+        }
       }
+    } catch (err: any) {
+      console.error('Failed to load buyer inquiries:', err);
+    } finally {
+      setLoading(false);
     }
-    loadProperties();
-    return () => {
-      isMounted = false;
+  }, [user, debouncedSearch, filterStatus, currentPage, pageSize]);
+
+  useEffect(() => {
+    fetchInquiries();
+  }, [fetchInquiries]);
+
+  // Listen for inquiry updates
+  useEffect(() => {
+    const handleUpdated = () => {
+      fetchInquiries();
     };
-  }, []);
+    window.addEventListener('inquiry:updated', handleUpdated);
+    return () => window.removeEventListener('inquiry:updated', handleUpdated);
+  }, [fetchInquiries]);
 
-  const allInquiries = typeof getMyInquiries === 'function' ? getMyInquiries() : [];
-  const safeInquiries = Array.isArray(allInquiries) ? allInquiries : [];
-
-  // If user is buyer, show inquiries sent by user or matching user's email;
-  // If no user or demo, show all available inquiries for preview
-  const relevantInquiries = safeInquiries.filter((inq) => {
-    if (!user) return true;
-    if (user.role === 'buyer') {
-      return (
-        inq.senderId === user.id ||
-        inq.email.toLowerCase() === user.email.toLowerCase() ||
-        inq.senderId === 'user-priya-002'
-      );
+  const handleDelete = async (inqId: string) => {
+    if (!confirm('Are you sure you want to delete this inquiry?')) return;
+    try {
+      const res = await inquiryService.deleteInquiry(inqId);
+      if (res.success) {
+        if (selectedInquiry?.id === inqId) {
+          setSelectedInquiry(null);
+        }
+        fetchInquiries();
+      }
+    } catch (err) {
+      console.error('Failed to delete inquiry:', err);
     }
-    // If seller, show all my property inquiries
-    return true;
-  });
-
-  const displayList = relevantInquiries.length > 0 ? relevantInquiries : allInquiries;
-
-  // Filter counts
-  const countAll = displayList.length;
-  const countNew = displayList.filter((i) => i.status === 'new').length;
-  const countRead = displayList.filter((i) => i.status === 'read').length;
-  const countReplied = displayList.filter((i) => i.status === 'replied').length;
-
-  const filteredInquiries = displayList.filter((inq) => {
-    const matchesFilter = filterStatus === 'all' || inq.status === filterStatus;
-    const matchesSearch =
-      inq.propertyTitle?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      inq.propertyCity?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      inq.message?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (inq.replyMessage && inq.replyMessage.toLowerCase().includes(searchQuery.toLowerCase()));
-    return matchesFilter && matchesSearch;
-  });
-
-  const getPropertyInfo = (propertyId: string) => {
-    return properties.find((p) => p.id === propertyId);
   };
+
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, totalItems);
 
   return (
     <div className="space-y-6">
@@ -104,17 +142,49 @@ export default function BuyerInquiriesClient() {
             </h1>
           </div>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            Track inquiries, viewing requests, and responses for properties you are interested in.
+            Track inquiries, viewing requests, and direct seller responses with real-time updates.
           </p>
         </div>
 
-        <Link
-          href="/properties"
-          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-all self-start md:self-center shadow-xs"
-        >
-          <Building2 className="w-4 h-4" />
-          Browse Properties
-        </Link>
+        <div className="flex items-center gap-3">
+          {/* Table / Cards View Mode Switcher */}
+          <div className="bg-slate-100 p-1 rounded-md flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setViewMode('table')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-bold transition-all cursor-pointer ${
+                viewMode === 'table'
+                  ? 'bg-white text-slate-900 shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+              title="Table View"
+            >
+              <TableIcon className="w-3.5 h-3.5" />
+              <span>Table</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('cards')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-bold transition-all cursor-pointer ${
+                viewMode === 'cards'
+                  ? 'bg-white text-slate-900 shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+              title="Cards View"
+            >
+              <LayoutList className="w-3.5 h-3.5" />
+              <span>Cards</span>
+            </button>
+          </div>
+
+          <Link
+            href="/properties"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-all shadow-xs"
+          >
+            <Building2 className="w-4 h-4" />
+            Browse Properties
+          </Link>
+        </div>
       </div>
 
       {/* Filter and Search Bar */}
@@ -126,23 +196,26 @@ export default function BuyerInquiriesClient() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search property title, city, or message..."
-            className="w-full h-10 pl-10 pr-3.5 text-sm rounded-md border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#e76f51] focus:ring-2 focus:ring-[#e76f51]/20 transition-all font-medium"
+            className="w-full h-10 pl-10 pr-3.5 text-xs sm:text-sm rounded-md border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#e76f51] focus:ring-2 focus:ring-[#e76f51]/20 transition-all font-medium"
           />
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
         </div>
 
-        {/* Status Filter Buttons with Dynamic Counts */}
+        {/* Status Filter Buttons with Dynamic Counts from Backend */}
         <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-md self-start sm:self-center overflow-x-auto">
           {[
-            { label: 'All', value: 'all', count: countAll },
-            { label: 'New / Sent', value: 'new', count: countNew },
-            { label: 'Seen', value: 'read', count: countRead },
-            { label: 'Replied', value: 'replied', count: countReplied },
+            { label: 'All', value: 'all', count: statusCounts.all },
+            { label: 'Pending', value: 'new', count: statusCounts.new },
+            { label: 'Seen', value: 'read', count: statusCounts.read },
+            { label: 'Replied', value: 'replied', count: statusCounts.replied },
           ].map((tab) => (
             <button
               key={tab.value}
               type="button"
-              onClick={() => setFilterStatus(tab.value as 'all' | 'new' | 'read' | 'replied')}
+              onClick={() => {
+                setFilterStatus(tab.value as 'all' | 'new' | 'read' | 'replied');
+                setCurrentPage(1);
+              }}
               className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
                 filterStatus === tab.value
                   ? 'bg-white text-slate-900 shadow-xs'
@@ -168,16 +241,261 @@ export default function BuyerInquiriesClient() {
         </div>
       </div>
 
-      {/* Inquiries List */}
-      {filteredInquiries.length > 0 ? (
+      {/* Active Filter Summary */}
+      {(debouncedSearch || filterStatus !== 'all') && (
+        <div className="flex items-center justify-between text-xs text-slate-500 px-1">
+          <span>
+            Showing <strong className="text-slate-900">{totalItems}</strong> matching inquiries
+          </span>
+          <button
+            onClick={() => {
+              setSearchQuery('');
+              setDebouncedSearch('');
+              setFilterStatus('all');
+              setCurrentPage(1);
+            }}
+            className="inline-flex items-center gap-1 text-[#e76f51] hover:underline font-semibold cursor-pointer"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            Reset Filters
+          </button>
+        </div>
+      )}
+
+      {/* Main Content Area */}
+      {loading ? (
+        <div className="bg-white rounded-lg p-20 text-center border border-slate-200/80 shadow-xs flex flex-col items-center justify-center space-y-3">
+          <Loader2 className="w-8 h-8 text-[#e76f51] animate-spin" />
+          <p className="text-xs font-medium text-slate-500">Loading your inquiries...</p>
+        </div>
+      ) : inquiries.length === 0 ? (
+        /* Empty State */
+        <div className="bg-white rounded-lg p-12 text-center border border-slate-200/80 shadow-xs">
+          <div className="w-16 h-16 rounded-lg bg-orange-50 text-[#e76f51] mx-auto flex items-center justify-center mb-4">
+            <Inbox className="w-8 h-8" />
+          </div>
+          <h3 className="text-base sm:text-lg font-bold text-slate-900">No inquiries found</h3>
+          <p className="text-xs sm:text-sm text-slate-500 max-w-md mx-auto mt-1 mb-6">
+            You haven&apos;t sent any property inquiries matching your search or filters yet.
+          </p>
+          <Link
+            href="/properties"
+            className="inline-flex items-center gap-2 px-6 py-2.5 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-xs sm:text-sm font-bold shadow-xs transition-all"
+          >
+            <Building2 className="w-4 h-4" />
+            Find Your Dream Home
+          </Link>
+        </div>
+      ) : viewMode === 'table' ? (
+        /* TABLE VIEW */
+        <div className="bg-white rounded-lg border border-slate-200/80 shadow-xs overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider text-[11px]">
+                  <th className="py-3.5 px-4">Property</th>
+                  <th className="py-3.5 px-3">Your Inquiry Message</th>
+                  <th className="py-3.5 px-3">Seller Reply</th>
+                  <th className="py-3.5 px-3">Date Sent</th>
+                  <th className="py-3.5 px-3">Status</th>
+                  <th className="py-3.5 px-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 font-medium">
+                {inquiries.map((inq) => {
+                  const dateStr = new Date(inq.createdAt).toLocaleDateString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric',
+                  });
+
+                  return (
+                    <tr
+                      key={inq.id}
+                      className="hover:bg-slate-50/70 transition-colors group cursor-pointer"
+                      onClick={() => setSelectedInquiry(inq)}
+                    >
+                      {/* Property */}
+                      <td className="py-3.5 px-4">
+                        <div className="flex items-center gap-2.5 max-w-xs">
+                          {inq.propertyCoverImage && (
+                            <div className="relative w-12 h-12 rounded-md overflow-hidden bg-slate-100 shrink-0 border border-slate-200">
+                              <Image
+                                src={inq.propertyCoverImage}
+                                alt="Property"
+                                fill
+                                className="object-cover"
+                              />
+                            </div>
+                          )}
+                          <div className="min-w-0">
+                            <span className="font-bold text-slate-900 line-clamp-1 block text-xs group-hover:text-[#e76f51] transition-colors">
+                              {inq.propertyTitle}
+                            </span>
+                            <span className="text-[10px] text-slate-400 capitalize">
+                              {inq.propertyCity || 'India'}
+                            </span>
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Your Message */}
+                      <td className="py-3.5 px-3 max-w-xs">
+                        <p className="text-slate-600 line-clamp-2 text-xs leading-relaxed italic">
+                          &quot;{inq.message}&quot;
+                        </p>
+                      </td>
+
+                      {/* Reply Received */}
+                      <td className="py-3.5 px-3 max-w-xs">
+                        {inq.replyMessage ? (
+                          <div className="p-2 rounded bg-emerald-50 border border-emerald-200/70 text-emerald-900 text-xs line-clamp-2">
+                            <span className="font-bold block text-[10px] text-emerald-800">
+                              Reply:
+                            </span>
+                            &quot;{inq.replyMessage}&quot;
+                          </div>
+                        ) : inq.status === 'replied' ? (
+                          <span className="text-emerald-700 text-xs font-semibold">
+                            ✓ Replied by Owner
+                          </span>
+                        ) : (
+                          <span className="text-slate-400 text-xs italic">Awaiting response</span>
+                        )}
+                      </td>
+
+                      {/* Date */}
+                      <td className="py-3.5 px-3 text-slate-500 whitespace-nowrap">
+                        <div className="font-semibold text-slate-700">{dateStr}</div>
+                      </td>
+
+                      {/* Status Badge */}
+                      <td className="py-3.5 px-3 whitespace-nowrap">
+                        {inq.status === 'replied' ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/60 shadow-2xs">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                            Replied
+                          </span>
+                        ) : inq.status === 'read' ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200/60">
+                            <Clock className="w-3.5 h-3.5 text-indigo-600" />
+                            Seen
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200/60">
+                            <Clock className="w-3.5 h-3.5 text-amber-600" />
+                            Pending
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Actions */}
+                      <td className="py-3.5 px-4 text-right" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedInquiry(inq)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-[#e76f51] hover:bg-[#d85e40] text-white text-xs font-bold transition-all shadow-2xs cursor-pointer"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                            <span>Details</span>
+                          </button>
+                          <Link
+                            href={`/property/${inq.propertySlug || inq.propertyId}`}
+                            target="_blank"
+                            className="p-1.5 rounded-md text-slate-400 hover:text-slate-800 hover:bg-slate-100 transition-colors"
+                            title="Open Property Page"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                          </Link>
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(inq.id)}
+                            className="p-1.5 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                            title="Delete Inquiry"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* BACKEND PAGINATION BAR */}
+          <div className="p-4 border-t border-slate-200 bg-slate-50/50 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-600">
+            <div className="flex items-center gap-3">
+              <span>
+                Showing <strong className="text-slate-900">{startIndex + 1}</strong> to{' '}
+                <strong className="text-slate-900">{endIndex}</strong> of{' '}
+                <strong className="text-slate-900">{totalItems}</strong> inquiries
+              </span>
+
+              <div className="flex items-center gap-1.5">
+                <span className="text-slate-400">Rows:</span>
+                <select
+                  value={pageSize}
+                  onChange={(e) => {
+                    setPageSize(Number(e.target.value));
+                    setCurrentPage(1);
+                  }}
+                  aria-label="Inquiries per page"
+                  className="h-7 px-2 bg-white border border-slate-300 rounded text-xs font-semibold focus:outline-none focus:border-[#e76f51] cursor-pointer"
+                >
+                  <option value={5}>5</option>
+                  <option value={10}>10</option>
+                  <option value={20}>20</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                disabled={currentPage <= 1 || loading}
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-medium transition-colors cursor-pointer"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+                <span>Prev</span>
+              </button>
+
+              <div className="flex items-center gap-1 px-1">
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
+                  <button
+                    key={pageNum}
+                    type="button"
+                    onClick={() => setCurrentPage(pageNum)}
+                    className={`w-7 h-7 rounded-md text-xs font-bold transition-all cursor-pointer ${
+                      currentPage === pageNum
+                        ? 'bg-[#e76f51] text-white shadow-xs'
+                        : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
+                    }`}
+                  >
+                    {pageNum}
+                  </button>
+                ))}
+              </div>
+
+              <button
+                type="button"
+                disabled={currentPage >= totalPages || loading}
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-medium transition-colors cursor-pointer"
+              >
+                <span>Next</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        /* CARDS VIEW */
         <div className="space-y-4">
-          {filteredInquiries.map((inq) => {
-            const prop = getPropertyInfo(inq.propertyId);
-            const cover =
-              inq.propertyCoverImage ||
-              prop?.coverImage ||
-              'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=600&q=80';
-            const title = inq.propertyTitle || prop?.title || 'Property Inquiry';
+          {inquiries.map((inq) => {
             const dateStr = new Date(inq.createdAt).toLocaleDateString('en-US', {
               month: 'short',
               day: 'numeric',
@@ -195,21 +513,18 @@ export default function BuyerInquiriesClient() {
                 {/* Thumbnail Image */}
                 <div className="relative w-full md:w-52 h-40 md:h-auto rounded-md overflow-hidden bg-slate-100 shrink-0">
                   <Image
-                    src={cover}
-                    alt={title}
+                    src={
+                      inq.propertyCoverImage ||
+                      'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=600&q=80'
+                    }
+                    alt={inq.propertyTitle}
                     fill
                     sizes="(max-width: 768px) 100vw, 208px"
                     className="object-cover"
                   />
                   <div className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-white/90 backdrop-blur-md text-[10px] font-bold text-slate-800 capitalize">
-                    {inq.propertyCity || prop?.city || 'India'}
+                    {inq.propertyCity || 'India'}
                   </div>
-
-                  {prop?.price && (
-                    <div className="absolute bottom-2 left-2 px-2 py-0.5 rounded-md bg-slate-900/90 backdrop-blur-md text-[10px] font-extrabold text-white">
-                      {formatPrice(prop.price)}
-                    </div>
-                  )}
                 </div>
 
                 {/* Details Column */}
@@ -221,7 +536,7 @@ export default function BuyerInquiriesClient() {
                         href={`/property/${inq.propertySlug || inq.propertyId}`}
                         className="font-bold text-slate-900 text-sm sm:text-base hover:text-[#e76f51] transition-colors truncate group flex items-center gap-1.5"
                       >
-                        <span className="truncate">{title}</span>
+                        <span className="truncate">{inq.propertyTitle}</span>
                         <ArrowUpRight className="w-4 h-4 text-slate-400 group-hover:text-[#e76f51] shrink-0" />
                       </Link>
 
@@ -254,7 +569,7 @@ export default function BuyerInquiriesClient() {
                       &quot;{inq.message}&quot;
                     </div>
 
-                    {/* REPLY MESSAGE OPTION - Highlighted Response Card */}
+                    {/* Reply Highlight */}
                     {inq.replyMessage ? (
                       <div className="p-3.5 bg-emerald-50/70 border border-emerald-200/80 rounded-md text-xs text-slate-800 leading-relaxed mb-3 shadow-2xs animate-in fade-in">
                         <div className="flex items-center justify-between gap-2 mb-1.5 pb-1.5 border-b border-emerald-200/50">
@@ -285,7 +600,7 @@ export default function BuyerInquiriesClient() {
                           Owner Has Replied:
                         </div>
                         <p className="text-slate-700 italic">
-                          The property owner has reviewed and responded to your inquiry. Check your email ({inq.email}) for direct tour coordination details!
+                          The property owner has reviewed and responded to your inquiry. Check your email for details!
                         </p>
                       </div>
                     ) : (
@@ -317,8 +632,7 @@ export default function BuyerInquiriesClient() {
                       )}
                     </div>
 
-                    <div className="flex items-center gap-3">
-                      {/* View Conversation Modal Trigger */}
+                    <div className="flex items-center gap-2">
                       <button
                         type="button"
                         onClick={() => setSelectedInquiry(inq)}
@@ -338,30 +652,69 @@ export default function BuyerInquiriesClient() {
                       >
                         Property <ArrowUpRight className="w-3.5 h-3.5" />
                       </Link>
+
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(inq.id)}
+                        className="p-1 text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
+                        title="Delete Inquiry"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   </div>
                 </div>
               </div>
             );
           })}
-        </div>
-      ) : (
-        /* Empty State */
-        <div className="bg-white rounded-lg p-12 text-center border border-slate-200/80 shadow-xs">
-          <div className="w-16 h-16 rounded-lg bg-orange-50 text-[#e76f51] mx-auto flex items-center justify-center mb-4">
-            <Inbox className="w-8 h-8" />
+
+          {/* Cards Pagination Bar */}
+          <div className="p-4 rounded-lg bg-white border border-slate-200/80 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-600">
+            <span>
+              Showing <strong className="text-slate-900">{startIndex + 1}</strong> to{' '}
+              <strong className="text-slate-900">{endIndex}</strong> of{' '}
+              <strong className="text-slate-900">{totalItems}</strong> inquiries
+            </span>
+
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                disabled={currentPage <= 1 || loading}
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-medium transition-colors cursor-pointer"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+                <span>Prev</span>
+              </button>
+
+              <div className="flex items-center gap-1 px-1">
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
+                  <button
+                    key={pageNum}
+                    type="button"
+                    onClick={() => setCurrentPage(pageNum)}
+                    className={`w-7 h-7 rounded-md text-xs font-bold transition-all cursor-pointer ${
+                      currentPage === pageNum
+                        ? 'bg-[#e76f51] text-white shadow-xs'
+                        : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
+                    }`}
+                  >
+                    {pageNum}
+                  </button>
+                ))}
+              </div>
+
+              <button
+                type="button"
+                disabled={currentPage >= totalPages || loading}
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-medium transition-colors cursor-pointer"
+              >
+                <span>Next</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
-          <h3 className="text-base sm:text-lg font-bold text-slate-900">No inquiries found</h3>
-          <p className="text-xs sm:text-sm text-slate-500 max-w-md mx-auto mt-1 mb-6">
-            You haven&apos;t sent any property inquiries matching your search or filters yet.
-          </p>
-          <Link
-            href="/properties"
-            className="inline-flex items-center gap-2 px-6 py-2.5 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-xs sm:text-sm font-bold shadow-xs transition-all"
-          >
-            <Building2 className="w-4 h-4" />
-            Find Your Dream Home
-          </Link>
         </div>
       )}
 
@@ -479,7 +832,14 @@ export default function BuyerInquiriesClient() {
             </div>
 
             {/* Modal Footer */}
-            <div className="p-4 border-t border-slate-100 flex items-center justify-end gap-2 bg-slate-50/80">
+            <div className="p-4 border-t border-slate-100 flex items-center justify-between gap-2 bg-slate-50/80">
+              <button
+                type="button"
+                onClick={() => handleDelete(selectedInquiry.id)}
+                className="text-xs text-rose-500 hover:text-rose-700 font-semibold flex items-center gap-1 cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5" /> Delete
+              </button>
               <button
                 type="button"
                 onClick={() => setSelectedInquiry(null)}

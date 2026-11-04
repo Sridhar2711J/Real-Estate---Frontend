@@ -5,7 +5,8 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useAuth } from '@/context/AuthContext';
 import { propertyService } from '@/services/propertyService';
-import { Property } from '@/types';
+import { inquiryService } from '@/services/inquiryService';
+import { Property, Inquiry } from '@/types';
 import { formatPrice } from '@/lib/propertyUtils';
 import {
   LayoutDashboard,
@@ -19,7 +20,7 @@ import {
 } from 'lucide-react';
 
 export default function SellerDashboardClient() {
-  const { user, getMyInquiries } = useAuth();
+  const { user } = useAuth();
 
   const [myProperties, setMyProperties] = useState<Property[]>([]);
   const [stats, setStats] = useState<{ total: number; active: number; sold: number; inactive: number }>({
@@ -28,30 +29,60 @@ export default function SellerDashboardClient() {
     sold: 0,
     inactive: 0,
   });
+  const [recentInquiries, setRecentInquiries] = useState<Inquiry[]>([]);
+  const [inquiryStats, setInquiryStats] = useState<{ total: number; unread: number }>({ total: 0, unread: 0 });
 
   useEffect(() => {
     let isMounted = true;
-    async function loadDashboardProperties() {
+    async function loadDashboardData() {
       try {
-        const res = await propertyService.getMyProperties();
-        if (isMounted && res && res.success) {
-          if (Array.isArray(res.properties)) setMyProperties(res.properties);
-          if (res.stats) setStats(res.stats);
+        const [res, inqRes] = await Promise.all([
+          propertyService.getMyProperties(),
+          inquiryService.getInquiries({ limit: 5 }),
+        ]);
+
+        if (isMounted) {
+          if (res && res.success) {
+            if (Array.isArray(res.properties)) setMyProperties(res.properties);
+            if (res.stats) setStats(res.stats);
+          }
+          if (inqRes && inqRes.success) {
+            setRecentInquiries(inqRes.inquiries || []);
+            setInquiryStats({
+              total: inqRes.pagination?.total || inqRes.counts?.all || 0,
+              unread: inqRes.counts?.unread ?? inqRes.counts?.new ?? 0,
+            });
+          }
         }
       } catch (err) {
-        console.error('Failed to load seller dashboard properties:', err);
+        console.error('Failed to load seller dashboard data:', err);
       }
     }
-    loadDashboardProperties();
+
+    loadDashboardData();
+
+    const handleInquiryUpdate = () => {
+      inquiryService.getInquiries({ limit: 5 }).then((inqRes) => {
+        if (isMounted && inqRes && inqRes.success) {
+          setRecentInquiries(inqRes.inquiries || []);
+          setInquiryStats({
+            total: inqRes.pagination?.total || inqRes.counts?.all || 0,
+            unread: inqRes.counts?.unread ?? inqRes.counts?.new ?? 0,
+          });
+        }
+      }).catch(() => {});
+    };
+
+    window.addEventListener('inquiry:updated', handleInquiryUpdate);
     return () => {
       isMounted = false;
+      window.removeEventListener('inquiry:updated', handleInquiryUpdate);
     };
   }, []);
 
-  const allInquiries = typeof getMyInquiries === 'function' ? getMyInquiries() : [];
-  const unreadInquiries = Array.isArray(allInquiries)
-    ? allInquiries.filter((inq) => inq.status === 'new').length
-    : 0;
+  const allInquiries = recentInquiries;
+  const unreadInquiries = inquiryStats.unread;
+  const totalInquiriesCount = inquiryStats.total;
   const soldPropertiesCount = stats.sold || myProperties.filter((p) => p.status === 'sold').length;
 
   return (
@@ -143,7 +174,7 @@ export default function SellerDashboardClient() {
             </span>
           </div>
           <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-2xl font-black text-slate-900">{allInquiries.length}</span>
+            <span className="text-2xl font-black text-slate-900">{totalInquiriesCount}</span>
             {unreadInquiries > 0 ? (
               <span className="text-xs font-bold text-white bg-[#e76f51] px-2 py-0.5 rounded-md">
                 {unreadInquiries} new
@@ -259,7 +290,7 @@ export default function SellerDashboardClient() {
                 </span>
                 <h2 className="text-base font-bold text-slate-900">Recent Inquiries</h2>
                 <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-700">
-                  {allInquiries.length} Total
+                  {totalInquiriesCount} Total
                 </span>
               </div>
               <Link
@@ -325,7 +356,7 @@ export default function SellerDashboardClient() {
               href="/seller/inquiries"
               className="text-xs font-semibold text-slate-500 hover:text-slate-800 flex items-center justify-center gap-1 py-1 transition-colors"
             >
-              Manage all {allInquiries.length} inquiries in table →
+              Manage all {totalInquiriesCount} inquiries in table →
             </Link>
           </div>
         </div>

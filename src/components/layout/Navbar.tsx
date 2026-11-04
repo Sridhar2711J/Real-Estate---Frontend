@@ -5,6 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
+import { inquiryService } from '@/services/inquiryService';
 import {
   ChevronDown,
   User as UserIcon,
@@ -19,11 +20,10 @@ import {
 
 export default function Navbar() {
   const pathname = usePathname();
-  const auth = useAuth() as any;
-  const user = auth?.user;
-  const logout = auth?.logout || (() => {});
+  const { user, logout, savedPropertyIds } = useAuth();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [localSavedIds, setLocalSavedIds] = useState<string[]>([]);
+  const [unreadInquiriesCount, setUnreadInquiriesCount] = useState<number>(0);
 
   React.useEffect(() => {
     try {
@@ -39,17 +39,43 @@ export default function Navbar() {
     }
   }, []);
 
+  React.useEffect(() => {
+    let isMounted = true;
+    const fetchCounts = async () => {
+      if (!user) {
+        setUnreadInquiriesCount(0);
+        return;
+      }
+      try {
+        const res = await inquiryService.getInquiryCounts();
+        if (isMounted && res && res.success) {
+          setUnreadInquiriesCount(res.unread || 0);
+        }
+      } catch {
+        // ignore
+      }
+    };
+
+    fetchCounts();
+
+    const handleUpdated = () => {
+      fetchCounts();
+    };
+
+    window.addEventListener('inquiry:updated', handleUpdated);
+    return () => {
+      isMounted = false;
+      window.removeEventListener('inquiry:updated', handleUpdated);
+    };
+  }, [user]);
+
   // Hide on auth split screens
   if (pathname === '/login' || pathname === '/register' || pathname === '/forgot-password') {
     return null;
   }
 
   const isSellerPortal = pathname.startsWith('/seller');
-  const myInquiries = typeof auth?.getMyInquiries === 'function' ? auth.getMyInquiries() : [];
-  const unreadInquiriesCount = Array.isArray(myInquiries)
-    ? myInquiries.filter((i: any) => i.status === 'new').length
-    : 0;
-  const safeSavedIds = Array.isArray(auth?.savedPropertyIds) ? auth.savedPropertyIds : localSavedIds;
+  const safeSavedIds = Array.isArray(savedPropertyIds) ? savedPropertyIds : localSavedIds;
 
   return (
     <header className="sticky top-0 z-50 w-full bg-white/95 backdrop-blur-md border-b border-slate-100 transition-all">

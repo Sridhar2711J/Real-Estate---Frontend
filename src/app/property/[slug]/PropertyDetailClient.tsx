@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { propertyService } from '@/services/propertyService';
+import { inquiryService } from '@/services/inquiryService';
 import { formatPrice, calculateSimilarProperties } from '@/lib/propertyUtils';
 import PropertyCard from '@/components/property/PropertyCard';
 import { Property } from '@/types';
@@ -36,8 +37,7 @@ export default function PropertyDetailClient() {
   const {
     user,
     isPropertySaved,
-    toggleSaveProperty,
-    submitInquiry
+    toggleSaveProperty
   } = useAuth();
 
   const [property, setProperty] = useState<Property | null>(null);
@@ -150,7 +150,7 @@ export default function PropertyDetailClient() {
   const similarProperties = calculateSimilarProperties(property, allProperties.length ? allProperties : [property], 3);
   const pricePerSqft = Math.round(property.price / (property.area || 1));
 
-  const handleInquirySubmit = (e: React.FormEvent) => {
+  const handleInquirySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     // If user is not authenticated, save draft inquiry and redirect to login
@@ -175,11 +175,11 @@ export default function PropertyDetailClient() {
     setInquiryFeedback(null);
     setInquiryLoading(true);
 
-    setTimeout(() => {
-      const res = submitInquiry({
+    try {
+      const res = await inquiryService.submitInquiry({
         propertyId: property.id,
         propertyTitle: property.title,
-        propertySlug: property.id,
+        propertySlug: property.slug || property.id,
         propertyCity: property.city,
         propertyCoverImage: property.coverImage,
         name: inquiryName || user.name || '',
@@ -196,7 +196,13 @@ export default function PropertyDetailClient() {
       } else {
         setInquiryFeedback({ type: 'error', text: res?.message || 'Failed to submit inquiry.' });
       }
-    }, 400);
+    } catch (err: any) {
+      setInquiryLoading(false);
+      setInquiryFeedback({
+        type: 'error',
+        text: err?.message || 'Failed to submit inquiry. Please try again.',
+      });
+    }
   };
 
   const handleShare = () => {

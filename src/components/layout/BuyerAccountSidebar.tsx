@@ -5,6 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
+import { inquiryService } from '@/services/inquiryService';
 import {
     User,
     MessageSquare,
@@ -17,14 +18,13 @@ import {
 
 export default function BuyerAccountSidebar() {
     const pathname = usePathname();
-    const auth = useAuth() as any;
-    const user = auth?.user;
-    const logout = auth?.logout || (() => {});
+    const { user, logout, savedPropertyIds } = useAuth();
     const [savedCount, setSavedCount] = React.useState<number>(0);
+    const [inquiryCount, setInquiryCount] = React.useState<number>(0);
 
     React.useEffect(() => {
-        if (Array.isArray(auth?.savedPropertyIds)) {
-            setSavedCount(auth.savedPropertyIds.length);
+        if (Array.isArray(savedPropertyIds)) {
+            setSavedCount(savedPropertyIds.length);
         } else {
             try {
                 const stored = typeof window !== 'undefined' ? localStorage.getItem('realnest_saved_properties') : null;
@@ -38,17 +38,39 @@ export default function BuyerAccountSidebar() {
                 // ignore
             }
         }
-    }, [auth?.savedPropertyIds]);
+    }, [savedPropertyIds]);
 
-    const myInquiries = typeof auth?.getMyInquiries === 'function' ? auth.getMyInquiries() : [];
-    // Inquiries sent by buyer
-    const userInquiries = Array.isArray(myInquiries)
-        ? myInquiries.filter(
-            (inq: any) => !user || inq.senderId === user.id || inq.email.toLowerCase() === user.email.toLowerCase()
-        )
-        : [];
-    const inquiryCount = userInquiries.length > 0 ? userInquiries.length : myInquiries.length;
-    const bookmarkCount = Array.isArray(auth?.savedPropertyIds) ? auth.savedPropertyIds.length : savedCount;
+    React.useEffect(() => {
+        let isMounted = true;
+        const fetchCounts = async () => {
+            try {
+                if (user) {
+                    const res = await inquiryService.getInquiryCounts();
+                    if (isMounted && res && res.success) {
+                        setInquiryCount(res.total);
+                    }
+                } else {
+                    setInquiryCount(0);
+                }
+            } catch {
+                // ignore
+            }
+        };
+
+        fetchCounts();
+
+        const handleUpdated = () => {
+            fetchCounts();
+        };
+
+        window.addEventListener('inquiry:updated', handleUpdated);
+        return () => {
+            isMounted = false;
+            window.removeEventListener('inquiry:updated', handleUpdated);
+        };
+    }, [user]);
+
+    const bookmarkCount = Array.isArray(savedPropertyIds) ? savedPropertyIds.length : savedCount;
 
     const navItems = [
         {
@@ -63,7 +85,7 @@ export default function BuyerAccountSidebar() {
             href: '/buyer/inquiries',
             icon: MessageSquare,
             description: 'Messages & tour requests',
-            badge: null,
+            badge: inquiryCount > 0 ? inquiryCount : null,
             badgeColor: 'bg-[#e76f51] text-white',
         },
         {

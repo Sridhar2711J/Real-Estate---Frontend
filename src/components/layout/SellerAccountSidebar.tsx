@@ -5,6 +5,8 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
+import { inquiryService } from '@/services/inquiryService';
+import { propertyService } from '@/services/propertyService';
 import {
   LayoutDashboard,
   Building2,
@@ -18,22 +20,50 @@ import {
 
 export default function SellerAccountSidebar() {
   const pathname = usePathname();
-  const auth = useAuth() as any;
-  const user = auth?.user;
-  const logout = auth?.logout || (() => {});
-  const properties = auth?.properties;
-  const getMyInquiries = auth?.getMyInquiries;
+  const { user, logout } = useAuth();
+  const [propertyCount, setPropertyCount] = React.useState<number>(0);
+  const [inquiryCount, setInquiryCount] = React.useState<{ total: number; unread: number }>({ total: 0, unread: 0 });
 
-  // Seller's properties count
-  const safeProperties = Array.isArray(properties) ? properties : [];
-  const myProperties = safeProperties.filter((p: any) => !user || p.ownerId === user.id || user?.role === 'seller');
-  const propertyCount = myProperties.length;
+  React.useEffect(() => {
+    let isMounted = true;
 
-  // Inquiries for seller
-  const allInquiries = typeof getMyInquiries === 'function' ? getMyInquiries() : [];
-  const unreadInquiries = Array.isArray(allInquiries)
-    ? allInquiries.filter((inq: any) => inq.status === 'new').length
-    : 0;
+    const loadData = async () => {
+      if (!user) return;
+      try {
+        const [propRes, inqRes] = await Promise.all([
+          propertyService.getProperties(),
+          inquiryService.getInquiryCounts(),
+        ]);
+
+        if (isMounted) {
+          if (propRes && propRes.success && Array.isArray(propRes.properties)) {
+            setPropertyCount(propRes.properties.length);
+          }
+          if (inqRes && inqRes.success) {
+            setInquiryCount({ total: inqRes.total || 0, unread: inqRes.unread || 0 });
+          }
+        }
+      } catch {
+        // ignore
+      }
+    };
+
+    loadData();
+
+    const handleInquiryUpdate = () => {
+      inquiryService.getInquiryCounts().then((res) => {
+        if (isMounted && res && res.success) {
+          setInquiryCount({ total: res.total || 0, unread: res.unread || 0 });
+        }
+      }).catch(() => {});
+    };
+
+    window.addEventListener('inquiry:updated', handleInquiryUpdate);
+    return () => {
+      isMounted = false;
+      window.removeEventListener('inquiry:updated', handleInquiryUpdate);
+    };
+  }, [user]);
 
   const navItems = [
     {
@@ -56,8 +86,8 @@ export default function SellerAccountSidebar() {
       href: '/seller/inquiries',
       icon: MessageSquare,
       description: 'Buyer messages & tour requests',
-      badge: unreadInquiries > 0 ? unreadInquiries : (allInquiries.length > 0 ? allInquiries.length : null),
-      badgeColor: unreadInquiries > 0 ? 'bg-[#e76f51] text-white' : 'bg-slate-100 text-slate-700',
+      badge: inquiryCount.unread > 0 ? inquiryCount.unread : (inquiryCount.total > 0 ? inquiryCount.total : null),
+      badgeColor: inquiryCount.unread > 0 ? 'bg-[#e76f51] text-white' : 'bg-slate-100 text-slate-700',
     },
     {
       name: 'My Profile',

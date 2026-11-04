@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useAuth } from '@/context/AuthContext';
+import { inquiryService } from '@/services/inquiryService';
 import { Inquiry } from '@/types';
 import {
   MessageSquare,
@@ -19,81 +20,192 @@ import {
   Send,
   X,
   RotateCcw,
+  Loader2,
+  Trash2,
 } from 'lucide-react';
 
 export default function SellerInquiriesClient() {
-  const { user, getMyInquiries, updateInquiryStatus } = useAuth();
+  const { user } = useAuth();
 
+  const [inquiries, setInquiries] = useState<Inquiry[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'new' | 'read' | 'replied'>('all');
 
-  // Pagination state
+  // Backend pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(5);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+
+  // Status counts from backend
+  const [statusCounts, setStatusCounts] = useState({
+    all: 0,
+    new: 0,
+    read: 0,
+    replied: 0,
+    unread: 0,
+  });
 
   // Active inquiry for View / Reply modal
   const [selectedInquiry, setSelectedInquiry] = useState<Inquiry | null>(null);
   const [replyMessage, setReplyMessage] = useState('');
+  const [replySubmitting, setReplySubmitting] = useState(false);
   const [replySent, setReplySent] = useState(false);
+  const [actionFeedback, setActionFeedback] = useState<string | null>(null);
 
-  const allInquiries = typeof getMyInquiries === 'function' ? getMyInquiries() : [];
+  // Debounce search query input (300ms)
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+      setCurrentPage(1);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [searchQuery]);
 
-  // Status counts for filter chips
-  const countNew = allInquiries.filter((i) => i.status === 'new').length;
-  const countRead = allInquiries.filter((i) => i.status === 'read').length;
-  const countReplied = allInquiries.filter((i) => i.status === 'replied').length;
+  // Fetch inquiries from backend API
+  const fetchInquiries = useCallback(async () => {
+    if (!user) return;
+    setLoading(true);
+    try {
+      const res = await inquiryService.getInquiries({
+        search: debouncedSearch,
+        status: filterStatus !== 'all' ? filterStatus : undefined,
+        page: currentPage,
+        limit: pageSize,
+      });
 
-  // Filter and search logic
-  const filteredInquiries = useMemo(() => {
-    return allInquiries
-      .filter((inq) => {
-        const matchesStatus = filterStatus === 'all' || inq.status === filterStatus;
-        const matchesSearch =
-          inq.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          inq.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          inq.phone.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          (inq.propertyTitle || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-          (inq.propertyCity || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-          inq.message.toLowerCase().includes(searchQuery.toLowerCase());
+      if (res && res.success) {
+        setInquiries(res.inquiries || []);
+        if (res.pagination) {
+          setTotalItems(res.pagination.total);
+          setTotalPages(res.pagination.totalPages || 1);
+        }
+        if (res.counts) {
+          setStatusCounts(res.counts);
+        }
+      }
+    } catch (err: any) {
+      console.error('Failed to fetch seller inquiries:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [user, debouncedSearch, filterStatus, currentPage, pageSize]);
 
-        return matchesStatus && matchesSearch;
-      })
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  }, [allInquiries, filterStatus, searchQuery]);
+  useEffect(() => {
+    fetchInquiries();
+  }, [fetchInquiries]);
 
-  // Pagination math
-  const totalItems = filteredInquiries.length;
-  const totalPages = Math.ceil(totalItems / pageSize) || 1;
-  const validCurrentPage = Math.min(currentPage, totalPages);
-  const startIndex = (validCurrentPage - 1) * pageSize;
-  const endIndex = Math.min(startIndex + pageSize, totalItems);
-  const currentInquiries = filteredInquiries.slice(startIndex, endIndex);
+  // Listen for background updates
+  useEffect(() => {
+    const handleUpdated = () => {
+      fetchInquiries();
+    };
+    window.addEventListener('inquiry:updated', handleUpdated);
+    return () => window.removeEventListener('inquiry:updated', handleUpdated);
+  }, [fetchInquiries]);
 
-  const handleOpenModal = (inq: Inquiry) => {
+  const handleOpenModal = async (inq: Inquiry) => {
     setSelectedInquiry(inq);
     setReplySent(false);
     setReplyMessage('');
+    setActionFeedback(null);
+
+    // If new, mark as read on the backend
     if (inq.status === 'new') {
-      updateInquiryStatus(inq.id, 'read');
+      try {
+        const updateRes = await inquiryService.updateInquiryStatus(inq.id, 'read');
+        if (updateRes.success && updateRes.inquiry) {
+          setSelectedInquiry(updateRes.inquiry);
+          setInquiries((prev) =>
+            prev.map((item) => (item.id === inq.id ? { ...item, status: 'read' } : item))
+          );
+          setStatusCounts((prev) => ({
+            ...prev,
+            new: Math.max(0, prev.new - 1),
+            read: prev.read + 1,
+            unread: Math.max(0, prev.unread - 1),
+          }));
+        }
+      } catch (err) {
+        console.warn('Failed to mark inquiry as read:', err);
+      }
     }
   };
 
-  const handleSendReply = (e: React.FormEvent) => {
+  const handleSendReply = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (selectedInquiry && replyMessage.trim()) {
-      updateInquiryStatus(selectedInquiry.id, 'replied', replyMessage.trim());
-      setReplySent(true);
-      setTimeout(() => {
-        setSelectedInquiry(null);
-        setReplySent(false);
-        setReplyMessage('');
-      }, 1200);
+    if (!selectedInquiry || !replyMessage.trim() || replySubmitting) return;
+
+    setReplySubmitting(true);
+    setActionFeedback(null);
+
+    try {
+      const res = await inquiryService.updateInquiryStatus(
+        selectedInquiry.id,
+        'replied',
+        replyMessage.trim()
+      );
+
+      if (res.success && res.inquiry) {
+        setReplySent(true);
+        setActionFeedback('Reply sent to buyer successfully!');
+        setSelectedInquiry(res.inquiry);
+        setInquiries((prev) =>
+          prev.map((item) => (item.id === selectedInquiry.id ? res.inquiry! : item))
+        );
+        setStatusCounts((prev) => ({
+          ...prev,
+          replied: prev.replied + 1,
+          read: selectedInquiry.status === 'read' ? Math.max(0, prev.read - 1) : prev.read,
+          new: selectedInquiry.status === 'new' ? Math.max(0, prev.new - 1) : prev.new,
+        }));
+
+        setTimeout(() => {
+          setSelectedInquiry(null);
+          setReplySent(false);
+          setReplyMessage('');
+          setActionFeedback(null);
+        }, 1500);
+      } else {
+        setActionFeedback(res.message || 'Failed to send reply');
+      }
+    } catch (err: any) {
+      setActionFeedback(err?.message || 'Error occurred while submitting reply.');
+    } finally {
+      setReplySubmitting(false);
     }
   };
 
-  const handleQuickStatusChange = (inqId: string, status: 'new' | 'read' | 'replied') => {
-    updateInquiryStatus(inqId, status);
+  const handleQuickStatusChange = async (inqId: string, status: 'new' | 'read' | 'replied') => {
+    try {
+      const res = await inquiryService.updateInquiryStatus(inqId, status);
+      if (res.success) {
+        fetchInquiries();
+      }
+    } catch (err) {
+      console.error('Failed to change status:', err);
+    }
   };
+
+  const handleDelete = async (inqId: string) => {
+    if (!confirm('Are you sure you want to delete this inquiry?')) return;
+    try {
+      const res = await inquiryService.deleteInquiry(inqId);
+      if (res.success) {
+        if (selectedInquiry?.id === inqId) {
+          setSelectedInquiry(null);
+        }
+        fetchInquiries();
+      }
+    } catch (err) {
+      console.error('Failed to delete inquiry:', err);
+    }
+  };
+
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, totalItems);
 
   return (
     <div className="space-y-6">
@@ -129,17 +241,14 @@ export default function SellerInquiriesClient() {
             <input
               type="text"
               value={searchQuery}
-              onChange={(e) => {
-                setSearchQuery(e.target.value);
-                setCurrentPage(1);
-              }}
-              placeholder="Search sender, email, property title, message..."
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search buyer name, email, property, message..."
               className="w-full h-10 pl-9 pr-3 text-xs sm:text-sm rounded-md border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#e76f51] focus:ring-2 focus:ring-[#e76f51]/20 transition-all font-medium"
             />
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
 
-          {/* Status Filter Buttons */}
+          {/* Status Filter Buttons with Dynamic Counts from Backend */}
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
             <button
               type="button"
@@ -153,7 +262,7 @@ export default function SellerInquiriesClient() {
                   : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
               }`}
             >
-              All ({allInquiries.length})
+              All ({statusCounts.all})
             </button>
             <button
               type="button"
@@ -167,7 +276,7 @@ export default function SellerInquiriesClient() {
                   : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
               }`}
             >
-              New ({countNew})
+              New ({statusCounts.new})
             </button>
             <button
               type="button"
@@ -181,7 +290,7 @@ export default function SellerInquiriesClient() {
                   : 'bg-blue-50 text-blue-700 hover:bg-blue-100'
               }`}
             >
-              Read ({countRead})
+              Read ({statusCounts.read})
             </button>
             <button
               type="button"
@@ -195,20 +304,21 @@ export default function SellerInquiriesClient() {
                   : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
               }`}
             >
-              Replied ({countReplied})
+              Replied ({statusCounts.replied})
             </button>
           </div>
         </div>
 
         {/* Active filter summary */}
-        {(searchQuery || filterStatus !== 'all') && (
+        {(debouncedSearch || filterStatus !== 'all') && (
           <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs text-slate-500">
             <span>
-              Showing <strong className="text-slate-900">{filteredInquiries.length}</strong> matching inquiries
+              Showing <strong className="text-slate-900">{totalItems}</strong> matching inquiries from backend
             </span>
             <button
               onClick={() => {
                 setSearchQuery('');
+                setDebouncedSearch('');
                 setFilterStatus('all');
                 setCurrentPage(1);
               }}
@@ -223,7 +333,12 @@ export default function SellerInquiriesClient() {
 
       {/* INQUIRIES TABLE CONTAINER */}
       <div className="bg-white rounded-lg border border-slate-200/80 shadow-xs overflow-hidden">
-        {currentInquiries.length === 0 ? (
+        {loading ? (
+          <div className="py-20 text-center flex flex-col items-center justify-center space-y-3">
+            <Loader2 className="w-8 h-8 text-[#e76f51] animate-spin" />
+            <p className="text-xs font-medium text-slate-500">Loading inquiries from server...</p>
+          </div>
+        ) : inquiries.length === 0 ? (
           <div className="py-16 text-center space-y-3">
             <div className="w-12 h-12 rounded-full bg-slate-100 text-slate-400 mx-auto flex items-center justify-center">
               <MessageSquare className="w-6 h-6" />
@@ -247,7 +362,7 @@ export default function SellerInquiriesClient() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-medium">
-                {currentInquiries.map((inq) => {
+                {inquiries.map((inq) => {
                   const dateFormatted = new Date(inq.createdAt).toLocaleDateString('en-US', {
                     month: 'short',
                     day: 'numeric',
@@ -278,7 +393,7 @@ export default function SellerInquiriesClient() {
                               {inq.email}
                             </span>
                             <span className="text-[10px] text-slate-500 font-mono">
-                              {inq.phone}
+                              {inq.phone || 'No phone provided'}
                             </span>
                           </div>
                         </div>
@@ -348,14 +463,24 @@ export default function SellerInquiriesClient() {
 
                       {/* Actions */}
                       <td className="py-3.5 px-4 text-right" onClick={(e) => e.stopPropagation()}>
-                        <button
-                          type="button"
-                          onClick={() => handleOpenModal(inq)}
-                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md bg-[#e76f51] hover:bg-[#d85e40] text-white text-xs font-bold transition-all shadow-2xs cursor-pointer"
-                        >
-                          <Eye className="w-3.5 h-3.5" />
-                          <span>View &amp; Reply</span>
-                        </button>
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenModal(inq)}
+                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md bg-[#e76f51] hover:bg-[#d85e40] text-white text-xs font-bold transition-all shadow-2xs cursor-pointer"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                            <span>View &amp; Reply</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(inq.id)}
+                            className="p-1.5 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                            title="Delete Inquiry"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -365,7 +490,7 @@ export default function SellerInquiriesClient() {
           </div>
         )}
 
-        {/* PAGINATION TOOLBAR */}
+        {/* BACKEND PAGINATION TOOLBAR */}
         {totalItems > 0 && (
           <div className="p-4 border-t border-slate-200 bg-slate-50/50 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-600">
             {/* Showing details and Page Size Selector */}
@@ -398,7 +523,7 @@ export default function SellerInquiriesClient() {
             <div className="flex items-center gap-1.5">
               <button
                 type="button"
-                disabled={validCurrentPage <= 1}
+                disabled={currentPage <= 1 || loading}
                 onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                 className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-medium transition-colors cursor-pointer"
               >
@@ -413,7 +538,7 @@ export default function SellerInquiriesClient() {
                     type="button"
                     onClick={() => setCurrentPage(pageNum)}
                     className={`w-7 h-7 rounded-md text-xs font-bold transition-all cursor-pointer ${
-                      validCurrentPage === pageNum
+                      currentPage === pageNum
                         ? 'bg-[#e76f51] text-white shadow-xs'
                         : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
                     }`}
@@ -425,7 +550,7 @@ export default function SellerInquiriesClient() {
 
               <button
                 type="button"
-                disabled={validCurrentPage >= totalPages}
+                disabled={currentPage >= totalPages || loading}
                 onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                 className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-medium transition-colors cursor-pointer"
               >
@@ -452,114 +577,180 @@ export default function SellerInquiriesClient() {
               <button
                 type="button"
                 onClick={() => setSelectedInquiry(null)}
-                className="p-1.5 rounded-md hover:bg-slate-200 text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
+                className="p-1 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Modal Body */}
-            <div className="p-6 overflow-y-auto space-y-4">
-              {/* Buyer Contact Header */}
-              <div className="p-4 rounded-md bg-slate-50 border border-slate-200/80 space-y-2">
+            <div className="p-5 space-y-4 overflow-y-auto">
+              {/* Sender Details Card */}
+              <div className="p-3.5 bg-slate-50 rounded-lg border border-slate-200/80 space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="font-black text-sm text-slate-900">{selectedInquiry.name}</span>
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                    Buyer Information
+                  </span>
                   <span
-                    className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                       selectedInquiry.status === 'new'
                         ? 'bg-emerald-100 text-emerald-800'
-                        : selectedInquiry.status === 'replied'
+                        : selectedInquiry.status === 'read'
                         ? 'bg-blue-100 text-blue-800'
                         : 'bg-slate-200 text-slate-700'
                     }`}
                   >
-                    Status: {selectedInquiry.status.toUpperCase()}
+                    {selectedInquiry.status.toUpperCase()}
                   </span>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-600 pt-1">
-                  <a
-                    href={`mailto:${selectedInquiry.email}`}
-                    className="flex items-center gap-1.5 text-blue-600 hover:underline truncate"
-                  >
-                    <Mail className="w-3.5 h-3.5 shrink-0" />
-                    {selectedInquiry.email}
-                  </a>
-                  <a
-                    href={`tel:${selectedInquiry.phone}`}
-                    className="flex items-center gap-1.5 text-slate-700 hover:text-slate-900"
-                  >
-                    <Phone className="w-3.5 h-3.5 shrink-0" />
-                    {selectedInquiry.phone}
-                  </a>
+
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-[#fef0eb] text-[#e76f51] font-bold text-sm flex items-center justify-center shrink-0">
+                    {selectedInquiry.name.charAt(0).toUpperCase()}
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-slate-900 text-sm">{selectedInquiry.name}</h4>
+                    <div className="flex items-center gap-3 text-xs text-slate-500 mt-0.5">
+                      <span className="flex items-center gap-1">
+                        <Mail className="w-3 h-3 text-slate-400" />
+                        {selectedInquiry.email}
+                      </span>
+                      {selectedInquiry.phone && (
+                        <span className="flex items-center gap-1 font-mono">
+                          <Phone className="w-3 h-3 text-slate-400" />
+                          {selectedInquiry.phone}
+                        </span>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              {/* Property Reference */}
-              <div className="text-xs space-y-1">
-                <span className="font-bold text-slate-400 uppercase tracking-wider text-[10px]">
-                  Property Inquired:
-                </span>
-                <div className="font-bold text-slate-900 flex items-center justify-between gap-2 p-2.5 rounded bg-slate-50 border border-slate-100">
-                  <span className="truncate">{selectedInquiry.propertyTitle}</span>
-                  {selectedInquiry.propertySlug && (
-                    <Link
-                      href={`/property/${selectedInquiry.propertySlug}`}
-                      target="_blank"
-                      className="text-[#e76f51] hover:underline text-[11px] font-semibold shrink-0 flex items-center gap-1"
-                    >
-                      View <ExternalLink className="w-3 h-3" />
-                    </Link>
-                  )}
+              {/* Property Details */}
+              <div className="p-3 bg-slate-50 rounded-lg border border-slate-200/80 flex items-center gap-3">
+                {selectedInquiry.propertyCoverImage && (
+                  <div className="relative w-12 h-12 rounded-md overflow-hidden bg-slate-200 shrink-0">
+                    <Image
+                      src={selectedInquiry.propertyCoverImage}
+                      alt="Property"
+                      fill
+                      className="object-cover"
+                    />
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                    Property Inquired
+                  </span>
+                  <p className="font-bold text-xs text-slate-900 truncate">
+                    {selectedInquiry.propertyTitle}
+                  </p>
+                  <span className="text-[11px] text-slate-500">
+                    {selectedInquiry.propertyCity || 'Prime Location'}
+                  </span>
+                </div>
+                <Link
+                  href={`/property/${selectedInquiry.propertySlug || selectedInquiry.propertyId}`}
+                  target="_blank"
+                  className="p-1.5 rounded-md text-slate-400 hover:text-[#e76f51] hover:bg-white transition-colors"
+                  title="View Property Page"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                </Link>
+              </div>
+
+              {/* Message from Buyer */}
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-1">
+                  Inquiry Message:
+                </label>
+                <div className="p-3 bg-slate-50 rounded-md border border-slate-200 text-xs text-slate-800 leading-relaxed italic">
+                  &quot;{selectedInquiry.message}&quot;
+                </div>
+                <div className="mt-1 flex items-center gap-1 text-[10px] text-slate-400">
+                  <Clock className="w-3 h-3" />
+                  Received {new Date(selectedInquiry.createdAt).toLocaleString()}
                 </div>
               </div>
 
-              {/* Message Content */}
-              <div className="space-y-1">
-                <span className="font-bold text-slate-400 uppercase tracking-wider text-[10px]">
-                  Message:
-                </span>
-                <div className="p-3.5 rounded-md bg-white border border-slate-200 text-xs sm:text-sm text-slate-800 leading-relaxed whitespace-pre-line">
-                  {selectedInquiry.message}
-                </div>
-              </div>
-
-              {/* Feedback Alert if sent */}
-              {replySent && (
-                <div className="p-3 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-2 animate-in fade-in">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>Reply sent to {selectedInquiry.name} successfully! Marked as Replied.</span>
+              {/* Existing Reply if already replied */}
+              {selectedInquiry.replyMessage && (
+                <div className="p-3 bg-emerald-50/70 border border-emerald-200 rounded-md text-xs text-slate-800 space-y-1">
+                  <div className="flex items-center justify-between text-emerald-800 font-bold text-[11px]">
+                    <span className="flex items-center gap-1">
+                      <CheckCircle2 className="w-3.5 h-3.5" /> Previous Reply Sent:
+                    </span>
+                    {selectedInquiry.repliedAt && (
+                      <span className="text-[10px] font-normal text-emerald-700">
+                        {new Date(selectedInquiry.repliedAt).toLocaleDateString()}
+                      </span>
+                    )}
+                  </div>
+                  <p className="whitespace-pre-line text-slate-700">{selectedInquiry.replyMessage}</p>
                 </div>
               )}
 
-              {/* Quick Reply Form */}
-              <form onSubmit={handleSendReply} className="space-y-2 pt-2 border-t border-slate-100">
-                <label className="block text-xs font-bold text-slate-700">
-                  Quick Reply to Buyer:
-                </label>
-                <textarea
-                  rows={3}
-                  required
-                  value={replyMessage}
-                  onChange={(e) => setReplyMessage(e.target.value)}
-                  placeholder={`Hi ${selectedInquiry.name}, thank you for your inquiry. When are you free for a property tour?`}
-                  className="w-full p-3 text-xs sm:text-sm rounded-md border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#e76f51] focus:ring-2 focus:ring-[#e76f51]/20 transition-all resize-none"
-                />
-                <div className="flex items-center justify-end gap-2 pt-1">
+              {/* Reply Form */}
+              <form onSubmit={handleSendReply} className="space-y-3 pt-2 border-t border-slate-100">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    {selectedInquiry.replyMessage ? 'Send Updated Reply:' : 'Direct Reply to Buyer:'}
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={replyMessage}
+                    onChange={(e) => setReplyMessage(e.target.value)}
+                    placeholder={`Write your response to ${selectedInquiry.name} (e.g. site visit schedule, brochure details)...`}
+                    className="w-full p-2.5 text-xs rounded-md border border-slate-300 focus:outline-none focus:border-[#e76f51] focus:ring-2 focus:ring-[#e76f51]/20 font-medium"
+                    required
+                  />
+                </div>
+
+                {actionFeedback && (
+                  <p
+                    className={`text-xs font-semibold ${
+                      replySent ? 'text-emerald-600' : 'text-rose-600'
+                    }`}
+                  >
+                    {actionFeedback}
+                  </p>
+                )}
+
+                <div className="flex items-center justify-between">
                   <button
                     type="button"
-                    onClick={() => setSelectedInquiry(null)}
-                    className="px-4 py-2 rounded-md border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
+                    onClick={() => handleDelete(selectedInquiry.id)}
+                    className="text-xs text-rose-500 hover:text-rose-700 font-semibold flex items-center gap-1 cursor-pointer"
                   >
-                    Close
+                    <Trash2 className="w-3.5 h-3.5" /> Delete
                   </button>
-                  <button
-                    type="submit"
-                    disabled={replySent}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-md bg-[#e76f51] hover:bg-[#d85e40] text-white text-xs font-bold transition-all shadow-xs disabled:opacity-60 cursor-pointer"
-                  >
-                    <Send className="w-3.5 h-3.5" />
-                    <span>Send Reply</span>
-                  </button>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedInquiry(null)}
+                      className="px-3 py-1.5 rounded-md border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 cursor-pointer"
+                    >
+                      Close
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={replySubmitting || !replyMessage.trim()}
+                      className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-md bg-[#e76f51] hover:bg-[#d85e40] text-white text-xs font-bold transition-all shadow-xs disabled:opacity-50 cursor-pointer"
+                    >
+                      {replySubmitting ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <span>Sending...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Send className="w-3.5 h-3.5" />
+                          <span>Send Reply</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </div>
               </form>
             </div>
@@ -569,4 +760,3 @@ export default function SellerInquiriesClient() {
     </div>
   );
 }
-

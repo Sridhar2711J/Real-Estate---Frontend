@@ -26,7 +26,7 @@ import {
 } from 'lucide-react';
 
 export default function SellerProfileClient() {
-  const { user, updateUserProfile, uploadAvatar, getMyInquiries } = useAuth();
+  const { user, updateUserProfile, uploadAvatar } = useAuth();
   const [myProperties, setMyProperties] = useState<Property[]>([]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -73,7 +73,6 @@ export default function SellerProfileClient() {
     };
   }, []);
 
-  const allInquiries = typeof getMyInquiries === 'function' ? getMyInquiries() : [];
   const totalPortfolioValue = myProperties.reduce((sum, p) => sum + (p.price || 0), 0);
 
   // Handle Profile Avatar Upload (Max 5MB, converts to WebP on backend)

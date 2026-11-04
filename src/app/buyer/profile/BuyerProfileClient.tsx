@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import { useAuth } from '@/context/AuthContext';
+import { inquiryService } from '@/services/inquiryService';
 import {
   User,
   Mail,
@@ -18,7 +19,22 @@ import {
 } from 'lucide-react';
 
 export default function BuyerProfileClient() {
-  const { user, updateUserProfile, uploadAvatar, savedPropertyIds, getMyInquiries } = useAuth();
+  const { user, updateUserProfile, uploadAvatar, savedPropertyIds } = useAuth();
+  const [inquiryCount, setInquiryCount] = useState<number>(0);
+
+  useEffect(() => {
+    let isMounted = true;
+    if (user) {
+      inquiryService.getInquiryCounts().then((res) => {
+        if (isMounted && res && res.success) {
+          setInquiryCount(res.total || 0);
+        }
+      }).catch(() => {});
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, [user]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -107,11 +123,6 @@ export default function BuyerProfileClient() {
     }
   };
 
-  const allInquiries = getMyInquiries();
-  const buyerInquiries = allInquiries.filter(
-    (inq) => !user || inq.senderId === user.id || inq.email.toLowerCase() === user.email.toLowerCase()
-  );
-
   return (
     <div className="space-y-6">
       {/* Top Header Card */}
@@ -153,7 +164,7 @@ export default function BuyerProfileClient() {
         <div className="bg-white p-5 rounded-lg border border-slate-200/80 shadow-xs flex items-center justify-between">
           <div>
             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Active Inquiries</p>
-            <p className="text-2xl font-black text-slate-900 mt-1">{buyerInquiries.length}</p>
+            <p className="text-2xl font-black text-slate-900 mt-1">{inquiryCount}</p>
           </div>
           <div className="w-10 h-10 rounded-md bg-orange-50 text-[#e76f51] flex items-center justify-center">
             <MessageSquare className="w-5 h-5" />

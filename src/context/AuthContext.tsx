@@ -8,10 +8,9 @@ import React, {
   useCallback,
 } from 'react';
 
-import { User, Inquiry } from '@/types';
+import { User } from '@/types';
 import { userService, RegisterUserData } from '@/services/userService';
 import { bookmarkService, BookmarkItem } from '@/services/bookmarkService';
-import { INITIAL_INQUIRIES } from '@/data/mockProperties';
 
 export interface AuthContextType {
   user: User | null;
@@ -42,16 +41,12 @@ export interface AuthContextType {
   uploadAvatar: (file: File) => Promise<{ success: boolean; message: string; avatarUrl?: string; user?: User }>;
   getMe: () => Promise<User | null>;
 
-  // Client inquiry & saved bookmark states
-  inquiries: Inquiry[];
+  // Saved bookmark states
   savedPropertyIds: string[];
   bookmarks: BookmarkItem[];
   bookmarkCount: number;
   isPropertySaved: (id: string) => boolean;
   toggleSaveProperty: (id: string) => Promise<void> | void;
-  getMyInquiries: () => Inquiry[];
-  updateInquiryStatus: (id: string, status: Inquiry['status'], replyMessage?: string) => void;
-  submitInquiry: (inquiryData: any) => { success: boolean; message: string };
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -70,7 +65,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [refreshToken, setRefreshToken] = useState<string | null>(null);
   const [isInitialized, setIsInitialized] = useState<boolean>(false);
 
-  const [inquiries, setInquiries] = useState<Inquiry[]>(INITIAL_INQUIRIES);
   const [savedPropertyIds, setSavedPropertyIds] = useState<string[]>([]);
   const [bookmarks, setBookmarks] = useState<BookmarkItem[]>([]);
   const [bookmarkCount, setBookmarkCount] = useState<number>(0);
@@ -120,12 +114,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
             setSavedPropertyIds(parsed);
             setBookmarkCount(parsed.length);
           }
-        }
-
-        const storedInqs = localStorage.getItem('realnest_custom_inquiries');
-        if (storedInqs) {
-          const parsed = JSON.parse(storedInqs);
-          if (Array.isArray(parsed) && parsed.length > 0) setInquiries(parsed);
         }
       } catch {
         // ignore
@@ -199,94 +187,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       }
     },
     [user, savedPropertyIds]
-  );
-
-  const getMyInquiries = useCallback((): Inquiry[] => {
-    if (!user) return inquiries;
-    if (user.role === 'buyer') {
-      const buyerInqs = inquiries.filter(
-        (inq) =>
-          inq.senderId === user.id ||
-          (user.email && inq.email.toLowerCase() === user.email.toLowerCase())
-      );
-      return buyerInqs.length > 0 ? buyerInqs : inquiries;
-    }
-    return inquiries;
-  }, [user, inquiries]);
-
-  const updateInquiryStatus = useCallback(
-    (id: string, status: Inquiry['status'], replyMessage?: string) => {
-      setInquiries((prev) => {
-        const next = prev.map((inq) => {
-          if (inq.id === id) {
-            return {
-              ...inq,
-              status,
-              replyMessage: replyMessage !== undefined ? replyMessage : inq.replyMessage,
-              repliedAt: replyMessage ? new Date().toISOString() : inq.repliedAt,
-            };
-          }
-          return inq;
-        });
-        if (typeof window !== 'undefined') {
-          try {
-            localStorage.setItem('realnest_custom_inquiries', JSON.stringify(next));
-          } catch {}
-        }
-        return next;
-      });
-    },
-    []
-  );
-
-  const submitInquiry = useCallback(
-    (inquiryData: any): { success: boolean; message: string } => {
-      if (inquiryData.honeypotWebsite) {
-        return {
-          success: false,
-          message: 'Spam detected. Submission blocked.',
-        };
-      }
-
-      if (!inquiryData.name || !inquiryData.email || !inquiryData.message) {
-        return {
-          success: false,
-          message: 'Please fill in your name, email, and message.',
-        };
-      }
-
-      const newInq: Inquiry = {
-        id: `inq-${Date.now()}`,
-        propertyId: inquiryData.propertyId || '',
-        propertyTitle: inquiryData.propertyTitle || 'Property Inquiry',
-        propertySlug: inquiryData.propertySlug || inquiryData.propertyId || '',
-        propertyCity: inquiryData.propertyCity || '',
-        propertyCoverImage: inquiryData.propertyCoverImage || undefined,
-        name: inquiryData.name.trim(),
-        email: inquiryData.email.trim(),
-        phone: inquiryData.phone ? inquiryData.phone.trim() : '',
-        message: inquiryData.message.trim(),
-        status: 'new',
-        createdAt: new Date().toISOString(),
-        senderId: user?.id || null,
-      };
-
-      setInquiries((prev) => {
-        const next = [newInq, ...prev];
-        if (typeof window !== 'undefined') {
-          try {
-            localStorage.setItem('realnest_custom_inquiries', JSON.stringify(next));
-          } catch {}
-        }
-        return next;
-      });
-
-      return {
-        success: true,
-        message: 'Your inquiry has been submitted successfully! The seller will contact you shortly.',
-      };
-    },
-    [user]
   );
 
   // Clear all auth data from state and storage
@@ -688,15 +588,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         updateUserProfile,
         uploadAvatar,
         getMe,
-        inquiries,
         savedPropertyIds,
         bookmarks,
         bookmarkCount,
         isPropertySaved,
         toggleSaveProperty,
-        getMyInquiries,
-        updateInquiryStatus,
-        submitInquiry,
       }}
     >
       {children}
